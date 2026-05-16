@@ -1,4 +1,4 @@
-const GEMINI_API_KEY = "AIzaSyDDxb9_YwcsNqKn759lGZh9cLo_DX94Els";
+const GEMINI_API_KEY = "AIzaSyDkZGAjk2DzdnNHuPZ8sq91-D_pDzFRn60";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 const state = {
     activeLectureFilter: "all",
