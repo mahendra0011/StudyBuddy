@@ -1,5 +1,5 @@
 const GEMINI_API_KEY = "AIzaSyDDxb9_YwcsNqKn759lGZh9cLo_DX94Els";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 const state = {
     activeLectureFilter: "all",
     activePrompt: ""
@@ -219,9 +219,35 @@ function setResultState(type, content = "") {
 
     if (type === "loading") {
         resultText.innerHTML = `
-            <div class="loading-state">
-                <div class="loading-spinner"></div>
-                <p>Generating your notes...</p>
+            <div class="ai-generating-card" role="status" aria-live="polite">
+                <div class="ai-generating-header">
+                    <div class="ai-avatar">
+                        <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <strong>NotesGPT is writing</strong>
+                        <p>Understanding your topic and preparing structured notes</p>
+                    </div>
+                    <div class="typing-dots" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+
+                <div class="thinking-steps" aria-hidden="true">
+                    <span class="active">Reading prompt</span>
+                    <span>Structuring sections</span>
+                    <span>Drafting notes</span>
+                </div>
+
+                <div class="stream-preview" aria-hidden="true">
+                    <span class="stream-line wide"></span>
+                    <span class="stream-line medium"></span>
+                    <span class="stream-line short"></span>
+                    <span class="stream-line wide"></span>
+                    <span class="stream-line medium"></span>
+                </div>
             </div>
         `;
         return;
@@ -249,8 +275,16 @@ function friendlyErrorMessage(error) {
         return "Gemini is connected, but this API key has no available quota right now. Check the key's Google AI Studio quota or add billing, then try again.";
     }
 
-    if (normalized.includes("api key") || normalized.includes("permission") || normalized.includes("unauthorized")) {
+    if (normalized.includes("leaked")) {
+        return "Gemini rejected this API key because it was reported as leaked. Create a new key in Google AI Studio, replace it in script.js, and redeploy.";
+    }
+
+    if (normalized.includes("api key") || normalized.includes("permission") || normalized.includes("unauthorized") || normalized.includes("permission_denied")) {
         return "Gemini rejected the API key. Check that the key is active and allowed to use the Gemini API.";
+    }
+
+    if (normalized.includes("not_found") || normalized.includes("not found") || normalized.includes("is not supported")) {
+        return "The selected Gemini model is not available for this API key. Use gemini-flash-lite-latest or another model listed in Google AI Studio.";
     }
 
     if (normalized.includes("failed to fetch") || normalized.includes("network")) {
@@ -286,6 +320,12 @@ function renderNotes(formData, notes) {
     `;
 }
 
+function wait(ms) {
+    return new Promise(resolve => {
+        window.setTimeout(resolve, ms);
+    });
+}
+
 function setGenerateButtonsLoading(isLoading) {
     const submitButton = document.querySelector("#notesForm button[type='submit']");
     const categoryCards = document.querySelectorAll(".note-category-card");
@@ -315,7 +355,10 @@ async function submitNotesRequest(formData) {
     document.querySelector(".home-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     try {
-        const notes = await generateNotes(formData);
+        const [notes] = await Promise.all([
+            generateNotes(formData),
+            wait(900)
+        ]);
         setResultState("success", renderNotes(formData, notes));
     } catch (error) {
         console.warn("Notes generation failed:", error?.message || error);
