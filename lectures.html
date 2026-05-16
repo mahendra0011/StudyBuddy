@@ -15,17 +15,16 @@
                 <span class="brand-mark"><i class="fas fa-wand-magic-sparkles"></i></span>
                 <span>
                     <strong>NotesGPT</strong>
-                    <small>AI notes workspace</small>
+                    <small>AI notes generator</small>
                 </span>
             </a>
 
             <nav class="nav-links" aria-label="Primary navigation">
                 <a href="index.html">Home</a>
-                <a href="search-notes.html">Make Notes</a>
                 <a class="active" href="lectures.html">Lectures</a>
             </nav>
 
-            <a class="nav-cta" href="search-notes.html">
+            <a class="nav-cta" href="index.html">
                 <i class="fas fa-file-pen" aria-hidden="true"></i>
                 Notes
             </a>
@@ -36,10 +35,10 @@
                 <div>
                     <span class="eyebrow">
                         <i class="fas fa-play" aria-hidden="true"></i>
-                        Curated learning
+                        Curated lectures
                     </span>
-                    <h1>Focused lecture library.</h1>
-                    <p>Search by topic or filter the playlists that pair well with generated notes.</p>
+                    <h1>Watch lectures with thumbnails.</h1>
+                    <p>Search by topic and open the playlist that matches your notes.</p>
                 </div>
 
                 <div class="library-search">
@@ -58,63 +57,93 @@
 
             <section class="lecture-grid" aria-label="Lecture playlists">
                 <article class="lecture-card" data-category="programming" data-title="java programming codewithharry">
-                    <div class="lecture-icon"><i class="fab fa-java"></i></div>
-                    <span>Programming</span>
-                    <h2>Java Programming</h2>
-                    <p>Beginner-friendly Java lessons covering syntax, OOP, collections, and practice projects.</p>
-                    <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9agwh1XjRt242xIpHhPT2llg" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PLu0W_9lII9agwh1XjRt242xIpHhPT2llg" target="_blank" rel="noopener" aria-label="Open Java Programming playlist">
+                        <img src="https://img.youtube.com/vi/ntLJmHOJ0ME/hqdefault.jpg" alt="Java programming lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>Programming</span>
+                        <h2>Java Programming</h2>
+                        <p>Syntax, OOP, collections, and beginner-friendly Java practice.</p>
+                        <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9agwh1XjRt242xIpHhPT2llg" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
 
                 <article class="lecture-card" data-category="programming" data-title="python programming codewithharry">
-                    <div class="lecture-icon"><i class="fab fa-python"></i></div>
-                    <span>Programming</span>
-                    <h2>Python Programming</h2>
-                    <p>Python fundamentals, problem solving, modules, and guided examples for practical learning.</p>
-                    <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahR1blWXxgSlL4y9iQBnLpR" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahR1blWXxgSlL4y9iQBnLpR" target="_blank" rel="noopener" aria-label="Open Python Programming playlist">
+                        <img src="https://img.youtube.com/vi/gfDE2a7MKjA/hqdefault.jpg" alt="Python programming lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>Programming</span>
+                        <h2>Python Programming</h2>
+                        <p>Python basics, modules, problem solving, and practical examples.</p>
+                        <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahR1blWXxgSlL4y9iQBnLpR" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
 
                 <article class="lecture-card" data-category="web" data-title="html css net ninja web development">
-                    <div class="lecture-icon"><i class="fas fa-code"></i></div>
-                    <span>Web Development</span>
-                    <h2>HTML and CSS</h2>
-                    <p>Build clean layouts, responsive pages, and strong front-end basics with hands-on lessons.</p>
-                    <a href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9ivBf_eKCPIAYXWzLlPAm6G" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9ivBf_eKCPIAYXWzLlPAm6G" target="_blank" rel="noopener" aria-label="Open HTML and CSS playlist">
+                        <img src="https://img.youtube.com/vi/hu-q2zYwEYs/hqdefault.jpg" alt="HTML and CSS lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>Web Development</span>
+                        <h2>HTML and CSS</h2>
+                        <p>Responsive layouts, styling basics, and hands-on front-end practice.</p>
+                        <a href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9ivBf_eKCPIAYXWzLlPAm6G" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
 
                 <article class="lecture-card" data-category="web" data-title="javascript net ninja web development">
-                    <div class="lecture-icon"><i class="fab fa-js"></i></div>
-                    <span>Web Development</span>
-                    <h2>JavaScript</h2>
-                    <p>Core JavaScript, DOM work, events, async patterns, and browser-based interaction.</p>
-                    <a href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9haFPT7J25Q9GRB_ZkFrQAc" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9haFPT7J25Q9GRB_ZkFrQAc" target="_blank" rel="noopener" aria-label="Open JavaScript playlist">
+                        <img src="https://img.youtube.com/vi/iWOYAxlnaww/hqdefault.jpg" alt="JavaScript lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>Web Development</span>
+                        <h2>JavaScript</h2>
+                        <p>DOM, events, async code, and browser interaction fundamentals.</p>
+                        <a href="https://www.youtube.com/playlist?list=PL4cUxeGkcC9haFPT7J25Q9GRB_ZkFrQAc" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
 
                 <article class="lecture-card" data-category="dsa" data-title="dsa java codewithharry data structures algorithms">
-                    <div class="lecture-icon"><i class="fas fa-diagram-project"></i></div>
-                    <span>DSA</span>
-                    <h2>DSA in Java</h2>
-                    <p>Arrays, linked lists, stacks, queues, trees, graphs, and algorithm practice in Java.</p>
-                    <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahIappRPN0MCAgtOu3lQjQi" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahIappRPN0MCAgtOu3lQjQi" target="_blank" rel="noopener" aria-label="Open DSA in Java playlist">
+                        <img src="https://img.youtube.com/vi/5_5oE5lgrhw/hqdefault.jpg" alt="DSA Java lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>DSA</span>
+                        <h2>DSA in Java</h2>
+                        <p>Arrays, linked lists, stacks, queues, trees, graphs, and algorithms.</p>
+                        <a href="https://www.youtube.com/playlist?list=PLu0W_9lII9ahIappRPN0MCAgtOu3lQjQi" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
 
                 <article class="lecture-card" data-category="cs" data-title="dsa complete jenny lectures data structures algorithms">
-                    <div class="lecture-icon"><i class="fas fa-network-wired"></i></div>
-                    <span>CS Core</span>
-                    <h2>DSA Complete Course</h2>
-                    <p>Conceptual data structures and algorithms lessons with a classroom-style explanation.</p>
-                    <a href="https://www.youtube.com/playlist?list=PLdo5W4Nhv31bbKJzrsKfMpo_grxuLl8LU" target="_blank" rel="noopener">
-                        Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                    <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PLdo5W4Nhv31bbKJzrsKfMpo_grxuLl8LU" target="_blank" rel="noopener" aria-label="Open complete DSA playlist">
+                        <img src="https://img.youtube.com/vi/AT14lCXuMKI/hqdefault.jpg" alt="Complete DSA lecture thumbnail">
+                        <span><i class="fas fa-play"></i></span>
                     </a>
+                    <div class="lecture-body">
+                        <span>CS Core</span>
+                        <h2>DSA Complete Course</h2>
+                        <p>Classroom-style data structures and algorithms explanations.</p>
+                        <a href="https://www.youtube.com/playlist?list=PLdo5W4Nhv31bbKJzrsKfMpo_grxuLl8LU" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                    </div>
                 </article>
             </section>
 

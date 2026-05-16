@@ -2,7 +2,8 @@ const GEMINI_API_KEY = "AIzaSyALmu96q6hLhylpJ-xuepTbBHSVIuJDcNw";
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 
 const state = {
-    activeLectureFilter: "all"
+    activeLectureFilter: "all",
+    activePrompt: ""
 };
 
 function escapeHTML(value) {
@@ -64,8 +65,7 @@ function markdownToHTML(markdown) {
     };
 
     for (let index = 0; index < lines.length; index += 1) {
-        const rawLine = lines[index];
-        const line = rawLine.trim();
+        const line = lines[index].trim();
 
         if (!line) {
             closeList();
@@ -109,7 +109,7 @@ function markdownToHTML(markdown) {
             continue;
         }
 
-        const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
+        const bulletMatch = line.match(/^[-*\u2022]\s+(.*)$/);
         if (bulletMatch) {
             if (listType !== "ul") {
                 closeList();
@@ -128,25 +128,35 @@ function markdownToHTML(markdown) {
     return html.join("");
 }
 
-function buildPrompt({ subject, topic, semester, language, depth }) {
+function getShortTitle(prompt, category) {
+    const compactPrompt = prompt.replace(/\s+/g, " ").trim();
+    const title = compactPrompt
+        .replace(/^generate\s+/i, "")
+        .replace(/^make\s+/i, "")
+        .replace(/^create\s+/i, "")
+        .slice(0, 82);
+
+    return title || `${category} notes`;
+}
+
+function buildPrompt({ prompt, category, language, depth }) {
     return [
         `Create ${depth} for a college student.`,
-        `Subject: ${subject}`,
-        `Topic: ${topic}`,
-        `Semester: ${semester}`,
+        `Category: ${category}`,
+        `Student request: ${prompt}`,
         `Language: ${language}`,
         "",
         "Format the answer in clean Markdown.",
-        "Include these sections:",
+        "Use this exact structure:",
         "1. Short introduction",
         "2. Key concepts and definitions",
         "3. Step-by-step explanation",
-        "4. Advantages and disadvantages",
+        "4. Advantages and disadvantages, if relevant",
         "5. Real-world applications or examples",
         "6. Important exam points",
         "7. Glossary of technical terms",
         "",
-        "Keep the writing clear, accurate, and student friendly."
+        "Keep the answer clear, practical, and easy to revise."
     ].join("\n");
 }
 
@@ -185,11 +195,10 @@ async function generateNotes(formData) {
     return text;
 }
 
-function getFormData() {
+function getHomeFormData() {
     return {
-        subject: document.getElementById("subjectInput")?.value.trim(),
-        topic: document.getElementById("topicInput")?.value.trim(),
-        semester: document.getElementById("semesterSelect")?.value,
+        prompt: document.getElementById("notePrompt")?.value.trim() || "",
+        category: document.getElementById("categorySelect")?.value || "General",
         language: document.getElementById("languageSelect")?.value || "English",
         depth: document.getElementById("depthSelect")?.value || "exam revision"
     };
@@ -253,19 +262,18 @@ function friendlyErrorMessage(error) {
 }
 
 function renderNotes(formData, notes) {
-    const safeSubject = escapeHTML(formData.subject);
-    const safeTopic = escapeHTML(formData.topic);
+    const safeTitle = escapeHTML(getShortTitle(formData.prompt, formData.category));
+    const safeCategory = escapeHTML(formData.category);
     const safeLanguage = escapeHTML(formData.language);
     const safeDepth = escapeHTML(formData.depth);
-    const safeSemester = escapeHTML(formData.semester);
 
     return `
         <article class="notes-container" id="notesContent">
             <header class="notes-header">
                 <div>
                     <span>Generated study notes</span>
-                    <h2>${safeTopic}</h2>
-                    <p>${safeSubject} - Semester ${safeSemester}</p>
+                    <h2>${safeTitle}</h2>
+                    <p>${safeCategory}</p>
                 </div>
                 <div class="notes-meta">
                     <b>${safeLanguage}</b>
@@ -279,20 +287,33 @@ function renderNotes(formData, notes) {
     `;
 }
 
-async function handleSearch(event) {
-    event.preventDefault();
+function setGenerateButtonsLoading(isLoading) {
+    const submitButton = document.querySelector("#notesForm button[type='submit']");
+    const categoryCards = document.querySelectorAll(".note-category-card");
 
-    const formData = getFormData();
+    if (submitButton) {
+        submitButton.disabled = isLoading;
+        submitButton.innerHTML = isLoading
+            ? '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Generating'
+            : '<i class="fas fa-arrow-up" aria-hidden="true"></i> Generate';
+    }
 
-    if (!formData.subject || !formData.topic || !formData.semester) {
-        setResultState("error", "Please fill in subject, topic, and semester before generating notes.");
+    categoryCards.forEach(card => {
+        card.disabled = isLoading;
+    });
+}
+
+async function submitNotesRequest(formData) {
+    if (!formData.prompt) {
+        setResultState("error", "Please write a topic or choose a category first.");
         return;
     }
 
-    const submitButton = event.currentTarget.querySelector("button[type='submit']");
-    submitButton.disabled = true;
-    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Generating';
+    state.activePrompt = formData.prompt;
+    setGenerateButtonsLoading(true);
     setResultState("loading");
+
+    document.querySelector(".home-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     try {
         const notes = await generateNotes(formData);
@@ -301,8 +322,7 @@ async function handleSearch(event) {
         console.warn("Notes generation failed:", error?.message || error);
         setResultState("error", friendlyErrorMessage(error));
     } finally {
-        submitButton.disabled = false;
-        submitButton.innerHTML = '<i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Generate';
+        setGenerateButtonsLoading(false);
     }
 }
 
@@ -313,8 +333,8 @@ function downloadPDF() {
         return;
     }
 
-    const topic = document.getElementById("topicInput")?.value.trim() || "notes";
-    const filename = `${topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "notes"}-notes.pdf`;
+    const prompt = state.activePrompt || document.getElementById("notePrompt")?.value.trim() || "notes";
+    const filename = `${prompt.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 42) || "notes"}-notes.pdf`;
 
     html2pdf().set({
         margin: 0.35,
@@ -325,51 +345,37 @@ function downloadPDF() {
     }).from(element).save();
 }
 
-function initGenerator() {
-    const form = document.getElementById("searchForm");
+function initHomeGenerator() {
+    const form = document.getElementById("notesForm");
+    const promptInput = document.getElementById("notePrompt");
+    const categorySelect = document.getElementById("categorySelect");
     const downloadButton = document.getElementById("downloadButton");
 
-    if (!form) {
-        return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const subject = params.get("subject");
-    const topic = params.get("topic");
-
-    if (subject) {
-        document.getElementById("subjectInput").value = subject;
-    }
-
-    if (topic) {
-        document.getElementById("topicInput").value = topic;
-    }
-
-    form.addEventListener("submit", handleSearch);
-    downloadButton?.addEventListener("click", downloadPDF);
-}
-
-function initHomePrompt() {
-    const form = document.getElementById("quickGenerate");
-    const topicInput = document.getElementById("homeTopic");
-
-    if (!form || !topicInput) {
+    if (!form || !promptInput) {
         return;
     }
 
     form.addEventListener("submit", event => {
         event.preventDefault();
-        const topic = topicInput.value.trim();
-        const query = topic ? `?topic=${encodeURIComponent(topic)}` : "";
-        window.location.href = `search-notes.html${query}`;
+        submitNotesRequest(getHomeFormData());
     });
 
-    document.querySelectorAll("[data-topic]").forEach(button => {
-        button.addEventListener("click", () => {
-            topicInput.value = button.dataset.topic || "";
-            topicInput.focus();
+    document.querySelectorAll(".note-category-card").forEach(card => {
+        card.addEventListener("click", () => {
+            const prompt = card.dataset.prompt || "";
+            const category = card.dataset.category || "General";
+            promptInput.value = prompt;
+
+            if (categorySelect) {
+                categorySelect.value = category;
+            }
+
+            document.querySelectorAll(".note-category-card").forEach(item => item.classList.toggle("selected", item === card));
+            submitNotesRequest(getHomeFormData());
         });
     });
+
+    downloadButton?.addEventListener("click", downloadPDF);
 }
 
 function initLectureFilters() {
@@ -410,7 +416,6 @@ function initLectureFilters() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    initHomePrompt();
-    initGenerator();
+    initHomeGenerator();
     initLectureFilters();
 });
