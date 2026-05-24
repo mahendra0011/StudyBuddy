@@ -162,6 +162,127 @@ async function generateNotes(formData) {
     return text;
 }
 
+function parseNotesStreamEvent(rawEvent) {
+    let eventName = "message";
+    const dataLines = [];
+
+    rawEvent.split(/\r?\n/).forEach(line => {
+        if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+        }
+
+        if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trimStart());
+        }
+    });
+
+    if (!dataLines.length) {
+        return null;
+    }
+
+    const rawData = dataLines.join("\n");
+    let data = rawData;
+
+    try {
+        data = JSON.parse(rawData);
+    } catch (error) {
+        data = rawData;
+    }
+
+    return { eventName, data };
+}
+
+async function streamNotes(formData, onChunk) {
+    const response = await fetch("/api/generate/stream", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const status = errorData.status || errorData.error?.status;
+        const message = errorData.message || errorData.error?.message || `Request failed with status ${response.status}`;
+        throw new Error(status ? `${status}: ${message}` : message);
+    }
+
+    if (!response.body) {
+        const text = await generateNotes(formData);
+        onChunk(text);
+        return text;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+    let streamError = null;
+
+    const handleEvent = rawEvent => {
+        const parsed = parseNotesStreamEvent(rawEvent);
+
+        if (!parsed) {
+            return false;
+        }
+
+        if (parsed.eventName === "chunk") {
+            const text = typeof parsed.data === "string" ? parsed.data : parsed.data?.text || "";
+
+            if (text) {
+                fullText += text;
+                onChunk(text);
+            }
+        }
+
+        if (parsed.eventName === "error") {
+            const status = parsed.data?.status;
+            const message = parsed.data?.message || "Gemini stream failed.";
+            streamError = new Error(status ? `${status}: ${message}` : message);
+        }
+
+        return parsed.eventName === "done";
+    };
+
+    while (true) {
+        const { done, value } = await reader.read();
+
+        if (value) {
+            buffer += decoder.decode(value, { stream: !done });
+            const events = buffer.split(/\r?\n\r?\n/);
+            buffer = events.pop() || "";
+
+            for (const event of events) {
+                if (handleEvent(event)) {
+                    await reader.cancel().catch(() => {});
+                    return fullText;
+                }
+
+                if (streamError) {
+                    throw streamError;
+                }
+            }
+        }
+
+        if (done) {
+            break;
+        }
+    }
+
+    buffer += decoder.decode();
+
+    if (buffer.trim()) {
+        handleEvent(buffer);
+    }
+
+    if (streamError) {
+        throw streamError;
+    }
+
+    return fullText;
+}
+
 function getHomeFormData() {
     return {
         prompt: document.getElementById("notePrompt")?.value.trim() || "",
@@ -303,90 +424,117 @@ function wait(ms) {
     });
 }
 
-function getNodeTextLength(node) {
-    if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent.length;
+function getLiveTypingChunkSize(pendingLength) {
+    if (pendingLength > 220) {
+        return 12;
     }
 
-    return Array.from(node.childNodes).reduce((total, child) => total + getNodeTextLength(child), 0);
+    if (pendingLength > 80) {
+        return 7;
+    }
+
+    return 3;
 }
 
-function getWritingSpeed(totalCharacters) {
-    return {
-        chunkSize: Math.max(4, Math.ceil(totalCharacters / 120)),
-        frameDelay: totalCharacters > 2400 ? 6 : 8
+function getLiveTypingDelay(pendingLength) {
+    if (pendingLength > 220) {
+        return 4;
+    }
+
+    if (pendingLength > 80) {
+        return 8;
+    }
+
+    return 14;
+}
+
+async function streamNotesToPage(formData) {
+    let target = null;
+    let downloadButton = null;
+    let shellVisible = false;
+    let pendingText = "";
+    let renderedText = "";
+    let isTyping = false;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const showNotesShell = () => {
+        if (shellVisible) {
+            return;
+        }
+
+        setResultState("success", renderNotesShell(formData, "", "writing-content"));
+        downloadButton = document.getElementById("downloadButton");
+        target = document.getElementById("notesContentBody");
+        downloadButton?.setAttribute("disabled", "true");
+        shellVisible = true;
     };
-}
 
-async function writeTextNode(text, parent, speed) {
-    if (!text.trim()) {
-        parent.appendChild(document.createTextNode(text));
-        return;
+    const paintNotes = () => {
+        if (target) {
+            target.innerHTML = markdownToHTML(renderedText);
+        }
+    };
+
+    const flushPendingText = () => {
+        if (!pendingText) {
+            return;
+        }
+
+        renderedText += pendingText;
+        pendingText = "";
+        paintNotes();
+    };
+
+    const typePendingText = async () => {
+        if (isTyping || !target) {
+            return;
+        }
+
+        isTyping = true;
+
+        while (pendingText) {
+            const chunkSize = getLiveTypingChunkSize(pendingText.length);
+            renderedText += pendingText.slice(0, chunkSize);
+            pendingText = pendingText.slice(chunkSize);
+            paintNotes();
+            await wait(getLiveTypingDelay(pendingText.length));
+        }
+
+        isTyping = false;
+    };
+
+    const addStreamChunk = text => {
+        if (!text) {
+            return;
+        }
+
+        showNotesShell();
+        pendingText += text;
+
+        if (prefersReducedMotion) {
+            flushPendingText();
+            return;
+        }
+
+        void typePendingText();
+    };
+
+    const streamedText = await streamNotes(formData, addStreamChunk);
+    showNotesShell();
+
+    while (isTyping || pendingText) {
+        await wait(24);
     }
 
-    const textNode = document.createTextNode("");
-    parent.appendChild(textNode);
+    const finalText = streamedText || renderedText;
 
-    for (let index = 0; index < text.length; index += speed.chunkSize) {
-        textNode.textContent += text.slice(index, index + speed.chunkSize);
-        await wait(speed.frameDelay);
-    }
-}
-
-async function writeGeneratedNode(sourceNode, targetParent, speed, depth = 0) {
-    if (sourceNode.nodeType === Node.TEXT_NODE) {
-        await writeTextNode(sourceNode.textContent, targetParent, speed);
-        return;
+    if (!finalText.trim()) {
+        throw new Error("Gemini returned an empty response.");
     }
 
-    if (sourceNode.nodeType !== Node.ELEMENT_NODE) {
-        return;
-    }
-
-    const clone = sourceNode.cloneNode(false);
-
-    if (depth === 0) {
-        clone.classList.add("write-block");
-    }
-
-    targetParent.appendChild(clone);
-
-    for (const child of Array.from(sourceNode.childNodes)) {
-        await writeGeneratedNode(child, clone, speed, depth + 1);
-    }
-}
-
-async function revealNotes(formData, notes) {
-    const html = markdownToHTML(notes);
-    setResultState("success", renderNotesShell(formData, "", "writing-content"));
-
-    const downloadButton = document.getElementById("downloadButton");
-    const target = document.getElementById("notesContentBody");
-    downloadButton?.setAttribute("disabled", "true");
-
-    if (!target) {
-        setResultState("success", renderNotes(formData, notes));
-        return;
-    }
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        target.innerHTML = html;
-        target.classList.add("done");
-        downloadButton?.removeAttribute("disabled");
-        return;
-    }
-
-    const template = document.createElement("template");
-    template.innerHTML = html;
-    const nodes = Array.from(template.content.childNodes);
-    const totalCharacters = Math.max(1, nodes.reduce((total, node) => total + getNodeTextLength(node), 0));
-    const speed = getWritingSpeed(totalCharacters);
-
-    for (const node of nodes) {
-        await writeGeneratedNode(node, target, speed);
-    }
-
-    target.classList.add("done");
+    renderedText = finalText;
+    paintNotes();
+    target?.classList.add("done");
     downloadButton?.removeAttribute("disabled");
 }
 
@@ -419,8 +567,7 @@ async function submitNotesRequest(formData) {
     document.querySelector(".home-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     try {
-        const notes = await generateNotes(formData);
-        await revealNotes(formData, notes);
+        await streamNotesToPage(formData);
     } catch (error) {
         console.warn("Notes generation failed:", error?.message || error);
         setResultState("error", friendlyErrorMessage(error));

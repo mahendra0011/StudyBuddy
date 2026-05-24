@@ -615,13 +615,6 @@ p {
     }
 }
 
-@keyframes writeIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 .error-state {
     color: var(--rose);
 }
@@ -703,10 +696,10 @@ p {
     display: none;
 }
 
-.write-block {
-    opacity: 0;
-    transform: translateY(5px);
-    animation: writeIn 180ms ease forwards;
+@media (prefers-reduced-motion: reduce) {
+    .writing-content::after {
+        animation: none;
+    }
 }
 
 .notes-content h1,

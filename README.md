@@ -8,8 +8,8 @@ The Gemini API is called through a small Node/Express backend so the API key can
 
 - ChatGPT-style AI prompt box on the home page
 - Category shortcuts for DBMS, OS, DSA, AI, Java, and Web topics
-- Gemini-powered note generation through `/api/generate`
-- Animated "NotesGPT is writing" loading state
+- Gemini-powered note generation through `/api/generate/stream`
+- Claude/ChatGPT-style live typing while notes generate
 - Markdown-style AI output rendered as clean notes
 - PDF download for generated notes
 - Lecture page with thumbnails, filters, and playlist links
