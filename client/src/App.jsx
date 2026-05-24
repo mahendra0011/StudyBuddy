@@ -51,6 +51,9 @@ const POMODORO_DURATIONS = {
   short: 5 * 60,
   long: 15 * 60
 };
+const TYPING_INTERVAL_MS = 16;
+const TYPING_MIN_CHARS = 8;
+const TYPING_MAX_CHARS = 36;
 
 const VIEW_META = {
   home: {
@@ -432,8 +435,8 @@ function NotesResult({ result, activeView }) {
       )}
 
       {result.status === "loading" && (
-        <div className="mx-auto grid max-w-2xl gap-5 rounded-lg border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-teal-50 p-6 shadow-soft">
-          <div className="flex items-center gap-4">
+        <div className="overflow-hidden rounded-lg border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-teal-50 shadow-soft">
+          <div className="flex flex-wrap items-center gap-4 border-b border-blue-100 bg-white/80 px-5 py-4">
             <span className="grid h-11 w-11 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-teal-500 text-white">
               <WandSparkles size={20} />
             </span>
@@ -447,7 +450,16 @@ function NotesResult({ result, activeView }) {
               <span className="thinking-dot h-2 w-2 rounded-full bg-brand"></span>
             </div>
           </div>
-          {result.html && <div className="notes-output" dangerouslySetInnerHTML={{ __html: result.html }} />}
+          {result.html ? (
+            <div className="notes-output generation-output typing-output" dangerouslySetInnerHTML={{ __html: result.html }} />
+          ) : (
+            <div className="grid gap-3 p-5">
+              <span className="h-4 w-3/5 rounded-full bg-blue-100" />
+              <span className="h-4 w-11/12 rounded-full bg-slate-100" />
+              <span className="h-4 w-10/12 rounded-full bg-slate-100" />
+              <span className="h-4 w-7/12 rounded-full bg-slate-100" />
+            </div>
+          )}
         </div>
       )}
 
@@ -467,15 +479,19 @@ function NotesResult({ result, activeView }) {
       )}
 
       {result.status === "done" && (
-        <>
-          <div className="mb-4 flex justify-end">
+        <div className="overflow-hidden rounded-lg border border-line bg-white shadow-tight">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50/80 px-5 py-4">
+            <div>
+              <span className="eyebrow"><CheckCircle2 size={15} /> Generated notes</span>
+              <h3 className="mt-1 text-lg font-extrabold text-ink">Ready to revise</h3>
+            </div>
             <button type="button" className="ghost-btn" onClick={() => window.print()}>
               <Download size={18} />
               Print / Save PDF
             </button>
           </div>
-          <div className="notes-output" dangerouslySetInnerHTML={{ __html: result.html }} />
-        </>
+          <div className="notes-output generation-output" dangerouslySetInnerHTML={{ __html: result.html }} />
+        </div>
       )}
     </section>
   );
@@ -1122,37 +1138,114 @@ function ToolShell({ view, eyebrow, title, description, children }) {
 }
 
 function HomePage({ activeView, setActiveView, result, setResult }) {
+  const generationIdRef = useRef(0);
+  const typingTimerRef = useRef(null);
+  const typingResolveRef = useRef(null);
+  const typingTargetRef = useRef("");
+  const typingTextRef = useRef("");
+  const typingCompleteRef = useRef(false);
+
+  useEffect(() => () => stopTypingAnimation(), []);
+
+  function stopTypingAnimation() {
+    if (typingTimerRef.current) {
+      window.clearInterval(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+
+    if (typingResolveRef.current) {
+      typingResolveRef.current(typingTextRef.current);
+      typingResolveRef.current = null;
+    }
+  }
+
+  function startTypingAnimation(view, generationId) {
+    stopTypingAnimation();
+    typingTargetRef.current = "";
+    typingTextRef.current = "";
+    typingCompleteRef.current = false;
+
+    return new Promise(resolve => {
+      typingResolveRef.current = resolve;
+      typingTimerRef.current = window.setInterval(() => {
+        if (generationId !== generationIdRef.current) {
+          stopTypingAnimation();
+          resolve("");
+          return;
+        }
+
+        const targetText = typingTargetRef.current;
+        const visibleText = typingTextRef.current;
+
+        if (visibleText.length < targetText.length) {
+          const remainingCharacters = targetText.length - visibleText.length;
+          const step = Math.min(
+            TYPING_MAX_CHARS,
+            Math.max(TYPING_MIN_CHARS, Math.ceil(remainingCharacters / 28)),
+            remainingCharacters
+          );
+          const nextText = targetText.slice(0, visibleText.length + step);
+          typingTextRef.current = nextText;
+          setResult({
+            status: "loading",
+            html: markdownToHTML(nextText),
+            text: nextText,
+            error: "",
+            view,
+            isTyping: true
+          });
+          return;
+        }
+
+        if (typingCompleteRef.current) {
+          stopTypingAnimation();
+          resolve(targetText);
+        }
+      }, TYPING_INTERVAL_MS);
+    });
+  }
+
   async function generate(payload, view) {
+    const generationId = generationIdRef.current + 1;
+    generationIdRef.current = generationId;
     setActiveView(view);
-    setResult({ status: "loading", html: "", text: "", error: "", view });
+    setResult({ status: "loading", html: "", text: "", error: "", view, isTyping: true });
+    const typingPromise = startTypingAnimation(view, generationId);
 
     try {
       let latestText = "";
       await streamGenerateNotes(payload, text => {
+        if (generationId !== generationIdRef.current) {
+          return;
+        }
         latestText = text;
-        setResult({
-          status: "loading",
-          html: markdownToHTML(text),
-          text,
-          error: "",
-          view
-        });
+        typingTargetRef.current = text;
       });
+      typingTargetRef.current = latestText;
+      typingCompleteRef.current = true;
+      const finalText = await typingPromise;
+
+      if (generationId !== generationIdRef.current) {
+        return;
+      }
 
       setResult({
         status: "done",
-        html: markdownToHTML(latestText),
-        text: latestText,
+        html: markdownToHTML(finalText),
+        text: finalText,
         error: "",
-        view
+        view,
+        isTyping: false
       });
     } catch (error) {
+      stopTypingAnimation();
       setResult({
         status: "error",
         html: "",
         text: "",
         error: friendlyError(error),
-        view
+        view,
+        isTyping: false
       });
     }
   }

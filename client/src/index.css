@@ -118,6 +118,28 @@
   pointer-events: none;
 }
 
+.generation-output {
+  padding: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.typing-output {
+  position: relative;
+  min-height: 14rem;
+}
+
+.typing-output::after {
+  content: "";
+  display: inline-block;
+  width: 0.55rem;
+  height: 1.15rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  background: #2563eb;
+  vertical-align: -0.18rem;
+  animation: cursorBlink 0.85s steps(1) infinite;
+}
+
 .notes-output h1,
 .notes-output h2,
 .notes-output h3 {
@@ -260,6 +282,18 @@ input[type="range"] {
   40% {
     transform: translateY(-5px);
     opacity: 1;
+  }
+}
+
+@keyframes cursorBlink {
+  0%,
+  48% {
+    opacity: 1;
+  }
+
+  49%,
+  100% {
+    opacity: 0;
   }
 }
 
