@@ -82,7 +82,24 @@ function extractTextFromGeminiData(data) {
 function normalizeGeminiError(errorData, fallbackStatus) {
     const status = errorData?.error?.status || "GEMINI_ERROR";
     const message = errorData?.error?.message || `Gemini request failed with status ${fallbackStatus}`;
+
+    if (fallbackStatus === 429 || isGeminiQuotaError(status, message)) {
+        return {
+            status: "GEMINI_RATE_LIMITED",
+            message: "Gemini quota or rate limit is reached for this API key. Wait a few minutes, use a key with available quota, or enable billing in Google AI Studio."
+        };
+    }
+
     return { status, message };
+}
+
+function isGeminiQuotaError(status, message) {
+    const value = `${status || ""} ${message || ""}`.toLowerCase();
+    return value.includes("429")
+        || value.includes("quota")
+        || value.includes("rate limit")
+        || value.includes("resource_exhausted")
+        || value.includes("too many requests");
 }
 
 function shouldTryNextModel(response, errorData) {
@@ -287,5 +304,6 @@ module.exports = {
     createGeminiStream,
     fetchWithTimeout,
     generateNotes,
+    normalizeGeminiError,
     streamGeminiText
 };

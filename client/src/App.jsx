@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   ArrowRight,
   Bookmark,
   BookOpen,
@@ -106,6 +107,16 @@ function classNames(...items) {
 function friendlyError(error) {
   const message = error?.message || "Something went wrong.";
   const lower = message.toLowerCase();
+
+  if (
+    lower.includes("429")
+    || lower.includes("quota")
+    || lower.includes("rate limit")
+    || lower.includes("resource_exhausted")
+    || lower.includes("too many requests")
+  ) {
+    return "Gemini quota or rate limit is reached for this API key. Wait a few minutes, use a key with available quota, or enable billing in Google AI Studio.";
+  }
 
   if (lower.includes("database") || lower.includes("mongodb")) {
     return "MongoDB is not connected. Add MONGODB_URI in your server environment variables.";
@@ -407,8 +418,17 @@ function NotesResult({ result, activeView }) {
       )}
 
       {result.status === "error" && (
-        <div className="grid min-h-72 place-items-center text-center text-rose-600">
-          <p className="font-bold">{result.error}</p>
+        <div className="grid min-h-72 place-items-center">
+          <div className="max-w-xl rounded-2xl border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-orange-50 p-6 text-center shadow-soft">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-rose-600 text-white shadow-lg shadow-rose-100">
+              <AlertCircle size={22} />
+            </span>
+            <h3 className="mt-4 text-lg font-extrabold text-ink">Generation paused</h3>
+            <p className="mt-2 text-sm leading-6 text-muted">{result.error}</p>
+            <div className="mt-5 inline-flex rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-extrabold uppercase tracking-[0.16em] text-rose-600">
+              Check Gemini quota
+            </div>
+          </div>
         </div>
       )}
 
