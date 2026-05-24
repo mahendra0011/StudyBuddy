@@ -10,7 +10,6 @@ import {
   FileText,
   Headphones,
   Home,
-  Layers3,
   ListChecks,
   LockKeyhole,
   Loader2,
@@ -505,8 +504,8 @@ function HomePanel({ onGenerate }) {
     <>
       <section className="relative py-6 sm:py-9">
         <div className="home-ambient" aria-hidden="true" />
-        <div className="grid items-stretch gap-5 lg:grid-cols-[1fr_360px]">
-          <div className="hero-panel relative overflow-hidden rounded-xl border border-white/80 bg-white/[0.9] p-5 shadow-soft backdrop-blur sm:p-7">
+        <div className="hero-panel relative overflow-hidden rounded-xl border border-white/80 bg-white/[0.9] p-5 shadow-soft backdrop-blur sm:p-7">
+          <div className="mx-auto max-w-5xl">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-600 via-teal-500 to-amber-400" />
             <span className="eyebrow"><Sparkles size={15} /> Gemini powered study notes</span>
             <h1 className="mt-3 max-w-3xl text-4xl font-black leading-tight text-ink sm:text-5xl">
@@ -568,33 +567,6 @@ function HomePanel({ onGenerate }) {
               </div>
             </form>
           </div>
-
-          <aside className="grid content-between gap-3 rounded-xl border border-white/80 bg-slate-950 p-4 text-white shadow-soft">
-            <div>
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-white/10 text-teal-200 ring-1 ring-white/15">
-                <Layers3 size={21} />
-              </span>
-              <h2 className="mt-4 text-2xl font-black leading-tight">Study workflow in one place</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">Notes, summaries, playlists, focus time, tasks, and sound tools stay in a clean workspace.</p>
-            </div>
-            <div className="grid gap-2">
-              {[
-                ["AI notes", "Prompt, PDF, and video"],
-                ["Planner", "Goals and task tracking"],
-                ["Focus mode", "Timer and ambient audio"]
-              ].map(([title, detail]) => (
-                <div key={title} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
-                  <span className="grid h-8 w-8 place-items-center rounded-md bg-white text-blue-700">
-                    <CheckCircle2 size={16} />
-                  </span>
-                  <div>
-                    <strong className="block text-sm">{title}</strong>
-                    <span className="text-xs text-slate-300">{detail}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </aside>
         </div>
       </section>
 
