@@ -24,47 +24,47 @@ function getMaxOutputTokens(depth) {
     const normalizedDepth = String(depth || "").toLowerCase();
 
     if (normalizedDepth.includes("quick") || normalizedDepth.includes("short")) {
-        return 550;
+        return 1000;
     }
 
     if (normalizedDepth.includes("detailed") || normalizedDepth.includes("classroom")) {
-        return 1500;
+        return 3200;
     }
 
-    return 900;
+    return 2200;
 }
 
 function getTargetLength(depth) {
     const normalizedDepth = String(depth || "").toLowerCase();
 
     if (normalizedDepth.includes("quick") || normalizedDepth.includes("short")) {
-        return "Target length: 120-220 words.";
+        return "Target length: 250-400 words.";
     }
 
     if (normalizedDepth.includes("detailed") || normalizedDepth.includes("classroom")) {
-        return "Target length: 500-700 words.";
+        return "Target length: 900-1300 words.";
     }
 
-    return "Target length: 280-420 words.";
+    return "Target length: 600-900 words.";
 }
 
 function buildPrompt({ prompt, category, language, depth }) {
     return [
-        `Create very fast, concise ${depth || "exam revision"} for a college student.`,
+        `Create complete, well-structured ${depth || "exam revision"} for a college student.`,
         `Category: ${category || "General"}`,
         `Student request: ${prompt}`,
         `Language: ${language || "English"}`,
         getTargetLength(depth),
         "",
         "Format the answer in clean Markdown.",
-        "Use short headings, tight bullets, and compact examples.",
+        "Use clear headings, useful bullet points, and practical examples.",
         "Use only these sections:",
         "1. Overview",
         "2. Key points",
         "3. Example",
         "4. Exam tips",
         "",
-        "Avoid long paragraphs, filler, and repeated explanations."
+        "Avoid filler and repeated explanations, but include enough detail for revision."
     ].join("\n");
 }
 
