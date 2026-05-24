@@ -4,23 +4,30 @@ import {
   Bookmark,
   BookOpen,
   CheckCircle2,
+  ChevronRight,
+  Clock3,
   Download,
-  FileUp,
   FileText,
   Headphones,
+  Home,
+  Layers3,
   ListChecks,
   LockKeyhole,
   Loader2,
   LogOut,
   Mail,
   Music2,
+  Pause,
   Play,
   Plus,
+  Radio,
+  RotateCcw,
   Search,
   ShieldCheck,
   Sparkles,
-  TimerReset,
+  Target,
   Trash2,
+  UploadCloud,
   User,
   UserPlus,
   Volume2,
@@ -45,58 +52,74 @@ const POMODORO_DURATIONS = {
 };
 
 const VIEW_META = {
-  pdf: {
-    icon: FileUp,
+  home: {
+    icon: Home,
     tone: "blue",
-    metric: "PDF to notes"
+    metric: "AI prompt studio",
+    detail: "Generate structured study notes"
+  },
+  pdf: {
+    icon: UploadCloud,
+    tone: "blue",
+    metric: "PDF to notes",
+    detail: "Upload handouts and chapters"
   },
   video: {
     icon: Play,
     tone: "rose",
-    metric: "Lecture summary"
+    metric: "Lecture summary",
+    detail: "YouTube metadata and transcripts"
   },
   pomodoro: {
-    icon: TimerReset,
+    icon: Clock3,
     tone: "amber",
-    metric: "Focus sprint"
+    metric: "Focus sprint",
+    detail: "Timed study and breaks"
   },
   tasks: {
-    icon: CheckCircle2,
+    icon: Target,
     tone: "teal",
-    metric: "Study planner"
+    metric: "Study planner",
+    detail: "Goals, tasks, and progress"
   },
   music: {
     icon: Volume2,
     tone: "indigo",
-    metric: "Ambient focus"
+    metric: "Ambient focus",
+    detail: "Low-volume study sound"
   }
 };
 
 const TONE_CLASSES = {
   blue: {
-    shell: "from-blue-50 via-white to-cyan-50",
+    shell: "from-white via-blue-50/70 to-cyan-50/80",
     icon: "bg-blue-600 text-white shadow-blue-100",
-    soft: "border-blue-200 bg-blue-50 text-blue-700"
+    soft: "border-blue-200 bg-blue-50 text-blue-700",
+    rail: "bg-blue-600"
   },
   rose: {
-    shell: "from-rose-50 via-white to-orange-50",
+    shell: "from-white via-rose-50/75 to-orange-50/70",
     icon: "bg-rose-600 text-white shadow-rose-100",
-    soft: "border-rose-200 bg-rose-50 text-rose-700"
+    soft: "border-rose-200 bg-rose-50 text-rose-700",
+    rail: "bg-rose-600"
   },
   amber: {
-    shell: "from-amber-50 via-white to-lime-50",
+    shell: "from-white via-amber-50/80 to-lime-50/70",
     icon: "bg-amber-500 text-white shadow-amber-100",
-    soft: "border-amber-200 bg-amber-50 text-amber-800"
+    soft: "border-amber-200 bg-amber-50 text-amber-800",
+    rail: "bg-amber-500"
   },
   teal: {
-    shell: "from-teal-50 via-white to-emerald-50",
+    shell: "from-white via-teal-50/75 to-emerald-50/70",
     icon: "bg-teal-600 text-white shadow-teal-100",
-    soft: "border-teal-200 bg-teal-50 text-teal-800"
+    soft: "border-teal-200 bg-teal-50 text-teal-800",
+    rail: "bg-teal-600"
   },
   indigo: {
-    shell: "from-indigo-50 via-white to-sky-50",
+    shell: "from-white via-indigo-50/75 to-sky-50/70",
     icon: "bg-indigo-600 text-white shadow-indigo-100",
-    soft: "border-indigo-200 bg-indigo-50 text-indigo-700"
+    soft: "border-indigo-200 bg-indigo-50 text-indigo-700",
+    rail: "bg-indigo-600"
   }
 };
 
@@ -148,54 +171,56 @@ function parseStoredAuth() {
 
 function Layout({ page, activeView, user, onNavigateHome, onNavigateLectures, onOpenAuth, children }) {
   return (
-    <div className="mx-auto min-h-screen w-[min(1180px,calc(100%-32px))] py-4 sm:py-5">
-      <header className="sticky top-3 z-30 flex min-h-[68px] flex-wrap items-center justify-between gap-3 rounded-xl border border-white/80 bg-white/[0.92] p-2 shadow-soft backdrop-blur-xl">
-        <button onClick={() => onNavigateHome("home")} className="inline-flex min-w-max items-center gap-3 rounded-lg px-2 py-1 text-left">
-          <span className="grid h-10 w-10 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-teal-500 text-white shadow-lg shadow-blue-100">
+    <div className="app-shell mx-auto min-h-screen w-[min(1200px,calc(100%-28px))] py-4 sm:py-5">
+      <header className="sticky top-3 z-30 grid gap-3 rounded-xl border border-white/80 bg-white/[0.88] p-2 shadow-soft backdrop-blur-xl lg:grid-cols-[auto_1fr_auto] lg:items-center">
+        <button onClick={() => onNavigateHome("home")} className="inline-flex min-w-max items-center gap-3 rounded-lg px-2 py-1 text-left transition hover:bg-slate-50">
+          <span className="grid h-11 w-11 place-items-center rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-teal-500 text-white shadow-lg shadow-blue-100">
             <WandSparkles size={20} />
           </span>
           <span>
-            <strong className="block text-[0.98rem] leading-tight">StudyBuddy</strong>
-            <small className="block text-xs text-muted">AI study workspace</small>
+            <strong className="block text-base leading-tight text-ink">StudyBuddy</strong>
+            <small className="block text-xs font-semibold text-muted">AI study workspace</small>
           </span>
         </button>
 
-        <nav className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-line bg-slate-50 p-1" aria-label="Primary">
+        <nav className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-line bg-slate-50/90 p-1" aria-label="Primary">
           {views.map(view => (
-            <button
+            <NavButton
               key={view.id}
-              type="button"
+              active={page === "home" && activeView === view.id}
+              icon={VIEW_META[view.id]?.icon || Sparkles}
+              label={view.label}
               onClick={() => onNavigateHome(view.id)}
-              className={classNames(
-                "min-h-9 whitespace-nowrap rounded-md px-3 text-sm font-bold text-muted transition",
-                page === "home" && activeView === view.id && "bg-white text-ink shadow-tight ring-1 ring-white",
-                !(page === "home" && activeView === view.id) && "hover:bg-white hover:text-ink"
-              )}
-            >
-              {view.label}
-            </button>
+            />
           ))}
-          <button
-            type="button"
-            onClick={onNavigateLectures}
-            className={classNames(
-              "min-h-9 whitespace-nowrap rounded-md px-3 text-sm font-bold text-muted transition",
-              page === "lectures" && "bg-white text-ink shadow-tight ring-1 ring-white",
-              page !== "lectures" && "hover:bg-white hover:text-ink"
-            )}
-          >
-            Lectures
-          </button>
+          <NavButton active={page === "lectures"} icon={BookOpen} label="Lectures" onClick={onNavigateLectures} />
         </nav>
 
-        <button type="button" onClick={onOpenAuth} className="ghost-btn max-w-[210px] overflow-hidden">
-          <User size={18} />
+        <button type="button" onClick={onOpenAuth} className="ghost-btn justify-self-start overflow-hidden lg:justify-self-end">
+          <User size={17} />
           <span className="truncate">{user ? user.name : "Sign in"}</span>
         </button>
       </header>
 
       <main className="pb-10">{children}</main>
     </div>
+  );
+}
+
+function NavButton({ active, icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={classNames(
+        "inline-flex min-h-10 items-center gap-2 whitespace-nowrap rounded-md px-3 text-sm font-extrabold text-muted transition",
+        active && "bg-white text-ink shadow-tight ring-1 ring-white",
+        !active && "hover:bg-white hover:text-ink"
+      )}
+    >
+      <Icon size={16} />
+      {label}
+    </button>
   );
 }
 
@@ -240,14 +265,14 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-      <section className="relative grid w-[min(880px,100%)] overflow-hidden rounded-2xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] md:grid-cols-[0.85fr_1.15fr]">
+      <section className="relative grid w-[min(880px,100%)] overflow-hidden rounded-xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] md:grid-cols-[0.85fr_1.15fr]">
         <button type="button" onClick={onClose} className="absolute right-3 top-3 z-10 icon-btn bg-white/90" title="Close">
           <X size={18} />
         </button>
 
         <aside className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-teal-900 p-6 text-white">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-blue-300 to-amber-200" />
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.12] ring-1 ring-white/20">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/[0.12] ring-1 ring-white/20">
             <ShieldCheck size={24} />
           </span>
           <h2 className="mt-6 text-3xl font-black leading-tight">
@@ -265,7 +290,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
               ["JWT session", "Protected playlist actions"],
               ["Private playlists", "Saved per signed-in student"]
             ].map(([title, detail]) => (
-              <div key={title} className="rounded-xl border border-white/[0.15] bg-white/[0.10] p-3">
+              <div key={title} className="rounded-lg border border-white/[0.15] bg-white/[0.10] p-3">
                 <strong className="block text-sm">{title}</strong>
                 <span className="mt-1 block text-xs text-blue-50/75">{detail}</span>
               </div>
@@ -288,14 +313,14 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 
           {!user && (
             <>
-              <div className="mt-5 grid grid-cols-2 gap-1 rounded-xl border border-line bg-slate-50 p-1">
+              <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg border border-line bg-slate-50 p-1">
                 {["signup", "login"].map(item => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => setMode(item)}
                     className={classNames(
-                      "min-h-11 rounded-lg font-bold text-muted transition",
+                      "min-h-11 rounded-md font-bold text-muted transition",
                       mode === item && "bg-white text-blue-700 shadow-tight"
                     )}
                   >
@@ -354,7 +379,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
           )}
 
           {user && (
-            <div className="mt-6 rounded-xl border border-line bg-slate-50 p-4">
+            <div className="mt-6 rounded-lg border border-line bg-slate-50 p-4">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 place-items-center rounded-lg bg-teal-600 text-white">
                   <CheckCircle2 size={21} />
@@ -377,7 +402,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 }
 
 function NotesResult({ result, activeView }) {
-  const visible = result.view === "home" || result.view === activeView;
+  const visible = result.status === "idle" ? activeView === "home" : result.view === activeView;
 
   if (!visible) {
     return null;
@@ -387,20 +412,28 @@ function NotesResult({ result, activeView }) {
     <section className="section-panel mt-5 min-h-80 bg-white/95" aria-live="polite">
       {result.status === "idle" && (
         <div className="grid min-h-72 place-items-center text-center">
-          <div>
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-700">
+          <div className="max-w-lg">
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-lg border border-blue-100 bg-blue-50 text-blue-700">
               <FileText size={30} />
             </span>
             <h3 className="mt-3 text-lg font-extrabold">Your generated notes will appear here.</h3>
             <p className="mt-2 text-muted">Choose a tool or write a prompt.</p>
+            <div className="mt-6 grid gap-2 text-left">
+              {["Overview", "Key points", "Exam tips"].map(item => (
+                <div key={item} className="flex items-center gap-3 rounded-lg border border-line bg-slate-50 px-3 py-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="text-sm font-bold text-muted">{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {result.status === "loading" && (
-        <div className="mx-auto grid max-w-2xl gap-5 rounded-2xl border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-teal-50 p-6 shadow-soft">
+        <div className="mx-auto grid max-w-2xl gap-5 rounded-lg border border-blue-100 bg-gradient-to-br from-white via-blue-50 to-teal-50 p-6 shadow-soft">
           <div className="flex items-center gap-4">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-blue-600 to-teal-500 text-white">
+            <span className="grid h-11 w-11 place-items-center rounded-lg bg-gradient-to-br from-blue-600 to-teal-500 text-white">
               <WandSparkles size={20} />
             </span>
             <div>
@@ -419,8 +452,8 @@ function NotesResult({ result, activeView }) {
 
       {result.status === "error" && (
         <div className="grid min-h-72 place-items-center">
-          <div className="max-w-xl rounded-2xl border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-orange-50 p-6 text-center shadow-soft">
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-rose-600 text-white shadow-lg shadow-rose-100">
+          <div className="max-w-xl rounded-lg border border-rose-100 bg-gradient-to-br from-white via-rose-50 to-orange-50 p-6 text-center shadow-soft">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-rose-600 text-white shadow-lg shadow-rose-100">
               <AlertCircle size={22} />
             </span>
             <h3 className="mt-4 text-lg font-extrabold text-ink">Generation paused</h3>
@@ -468,87 +501,99 @@ function HomePanel({ onGenerate }) {
 
   return (
     <>
-      <section className="py-7 sm:py-10">
-        <div className="grid items-center gap-7 lg:grid-cols-[1fr_360px]">
-          <div className="text-center lg:text-left">
-            <span className="eyebrow justify-center lg:justify-start"><Sparkles size={15} /> Gemini powered study notes</span>
-            <h1 className="mx-auto mt-3 max-w-3xl text-4xl font-black leading-tight text-ink sm:text-5xl lg:mx-0">
+      <section className="relative py-6 sm:py-9">
+        <div className="home-ambient" aria-hidden="true" />
+        <div className="grid items-stretch gap-5 lg:grid-cols-[1fr_360px]">
+          <div className="hero-panel relative overflow-hidden rounded-xl border border-white/80 bg-white/[0.9] p-5 shadow-soft backdrop-blur sm:p-7">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-600 via-teal-500 to-amber-400" />
+            <span className="eyebrow"><Sparkles size={15} /> Gemini powered study notes</span>
+            <h1 className="mt-3 max-w-3xl text-4xl font-black leading-tight text-ink sm:text-5xl">
               Generate clean notes from one prompt.
             </h1>
-            <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-muted lg:mx-0">
-              Ask for any topic and get structured notes with definitions, examples, exam points, and glossary-style clarity.
+            <p className="mt-4 max-w-2xl text-lg leading-8 text-muted">
+              Turn topics, PDFs, and lectures into clear revision notes with headings, examples, and exam-ready points.
             </p>
-          </div>
 
-          <div className="grid gap-3 rounded-2xl border border-white/80 bg-white/[0.85] p-4 shadow-soft">
-            {[
-              ["Streaming", "Live writing effect"],
-              ["Backend", "Gemini secured on server"],
-              ["MongoDB", "Profiles and playlists"]
-            ].map(([title, detail]) => (
-              <div key={title} className="flex items-center gap-3 rounded-xl border border-line bg-slate-50 p-3">
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-blue-700 shadow-tight">
-                  <CheckCircle2 size={18} />
+            <form onSubmit={submit} className="mt-6 overflow-hidden rounded-lg border border-line bg-white shadow-tight">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50/80 px-4 py-3">
+                <span className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-700">
+                  <WandSparkles size={17} />
+                  AI prompt
                 </span>
-                <div>
-                  <strong className="block text-sm text-ink">{title}</strong>
-                  <span className="text-xs text-muted">{detail}</span>
-                </div>
+                <span className="inline-flex items-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
+                  <Radio size={13} />
+                  Live writing
+                </span>
               </div>
-            ))}
+              <textarea
+                className="textarea-field min-h-36 rounded-none border-0 bg-white text-base focus:ring-0"
+                rows={4}
+                placeholder="Ask anything: DBMS normalization, Java OOP, OS deadlocks..."
+                value={form.prompt}
+                onChange={event => setForm({ ...form, prompt: event.target.value })}
+                required
+              />
+              <div className="grid gap-3 border-t border-line bg-slate-50/70 p-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Category
+                    <select className="field bg-white" value={form.category} onChange={event => setForm({ ...form, category: event.target.value })}>
+                      {["General", "DBMS", "Operating System", "Data Structures", "Artificial Intelligence", "Java", "Web Development"].map(item => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Language
+                    <select className="field bg-white" value={form.language} onChange={event => setForm({ ...form, language: event.target.value })}>
+                      <option>English</option>
+                      <option>Hindi</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-bold text-slate-700">
+                    Depth
+                    <select className="field bg-white" value={form.depth} onChange={event => setForm({ ...form, depth: event.target.value })}>
+                      <option value="exam revision">Exam revision</option>
+                      <option value="detailed classroom notes">Detailed notes</option>
+                      <option value="quick short notes">Short notes</option>
+                    </select>
+                  </label>
+                </div>
+                <button className="primary-btn min-h-12">
+                  <Sparkles size={18} />
+                  Generate
+                </button>
+              </div>
+            </form>
           </div>
-        </div>
 
-        <form onSubmit={submit} className="panel mx-auto mt-7 max-w-5xl overflow-hidden p-4 text-left shadow-soft">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-            <span className="inline-flex items-center gap-2 text-sm font-extrabold text-blue-700">
-              <WandSparkles size={17} />
-              AI prompt
-            </span>
-            <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-bold text-teal-700">
-              Streaming output
-            </span>
-          </div>
-          <textarea
-            className="textarea-field border-0 bg-white text-base focus:ring-0"
-            rows={4}
-            placeholder="Ask anything: DBMS normalization, Java OOP, OS deadlocks..."
-            value={form.prompt}
-            onChange={event => setForm({ ...form, prompt: event.target.value })}
-            required
-          />
-          <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="grid gap-1 text-sm font-bold text-slate-700">
-                Category
-                <select className="field" value={form.category} onChange={event => setForm({ ...form, category: event.target.value })}>
-                  {["General", "DBMS", "Operating System", "Data Structures", "Artificial Intelligence", "Java", "Web Development"].map(item => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-bold text-slate-700">
-                Language
-                <select className="field" value={form.language} onChange={event => setForm({ ...form, language: event.target.value })}>
-                  <option>English</option>
-                  <option>Hindi</option>
-                </select>
-              </label>
-              <label className="grid gap-1 text-sm font-bold text-slate-700">
-                Depth
-                <select className="field" value={form.depth} onChange={event => setForm({ ...form, depth: event.target.value })}>
-                  <option value="exam revision">Exam revision</option>
-                  <option value="detailed classroom notes">Detailed notes</option>
-                  <option value="quick short notes">Short notes</option>
-                </select>
-              </label>
+          <aside className="grid content-between gap-3 rounded-xl border border-white/80 bg-slate-950 p-4 text-white shadow-soft">
+            <div>
+              <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-white/10 text-teal-200 ring-1 ring-white/15">
+                <Layers3 size={21} />
+              </span>
+              <h2 className="mt-4 text-2xl font-black leading-tight">Study workflow in one place</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">Notes, summaries, playlists, focus time, tasks, and sound tools stay in a clean workspace.</p>
             </div>
-            <button className="primary-btn">
-              <Sparkles size={18} />
-              Generate
-            </button>
-          </div>
-        </form>
+            <div className="grid gap-2">
+              {[
+                ["AI notes", "Prompt, PDF, and video"],
+                ["Planner", "Goals and task tracking"],
+                ["Focus mode", "Timer and ambient audio"]
+              ].map(([title, detail]) => (
+                <div key={title} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3">
+                  <span className="grid h-8 w-8 place-items-center rounded-md bg-white text-blue-700">
+                    <CheckCircle2 size={16} />
+                  </span>
+                  <div>
+                    <strong className="block text-sm">{title}</strong>
+                    <span className="text-xs text-slate-300">{detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </aside>
+        </div>
       </section>
 
       <section className="section-panel bg-white/95">
@@ -557,25 +602,32 @@ function HomePanel({ onGenerate }) {
             <span className="eyebrow"><ListChecks size={15} /> Popular categories</span>
             <h2 className="mt-2 text-2xl font-extrabold">Start with a study category</h2>
           </div>
+          <span className="rounded-full border border-line bg-slate-50 px-3 py-1 text-xs font-extrabold uppercase text-muted">
+            Quick generate
+          </span>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {categories.map((item, index) => {
             const Icon = item.icon;
             const accents = [
-              "hover:border-blue-300 hover:bg-blue-50",
-              "hover:border-teal-300 hover:bg-teal-50",
-              "hover:border-amber-300 hover:bg-amber-50",
-              "hover:border-indigo-300 hover:bg-indigo-50",
-              "hover:border-rose-300 hover:bg-rose-50",
-              "hover:border-cyan-300 hover:bg-cyan-50"
+              { icon: "from-blue-600 to-cyan-500", text: "text-blue-700" },
+              { icon: "from-teal-600 to-emerald-500", text: "text-teal-700" },
+              { icon: "from-amber-500 to-orange-500", text: "text-amber-800" },
+              { icon: "from-indigo-600 to-blue-500", text: "text-indigo-700" },
+              { icon: "from-rose-600 to-orange-500", text: "text-rose-700" },
+              { icon: "from-cyan-600 to-blue-500", text: "text-cyan-700" }
             ];
+            const accent = accents[index % accents.length];
             return (
-              <button key={item.title} type="button" onClick={() => useCategory(item)} className={classNames("min-h-[136px] rounded-xl border border-line bg-white p-4 text-left shadow-tight transition hover:-translate-y-0.5", accents[index % accents.length])}>
-                <span className="grid h-11 w-11 place-items-center rounded-lg border border-line bg-slate-50 text-blue-700">
+              <button key={item.title} type="button" onClick={() => useCategory(item)} className="group min-h-[148px] rounded-lg border border-line bg-white p-4 text-left shadow-tight transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-soft">
+                <span className={classNames("grid h-11 w-11 place-items-center rounded-lg bg-gradient-to-br text-white shadow-lg", accent.icon)}>
                   <Icon size={22} />
                 </span>
-                <span className="mt-3 block text-xs font-extrabold uppercase text-slate-600">{item.category}</span>
-                <strong className="mt-1 block text-[1.02rem]">{item.title}</strong>
+                <span className={classNames("mt-3 block text-xs font-extrabold uppercase", accent.text)}>{item.category}</span>
+                <strong className="mt-1 block text-[1.02rem] text-ink">{item.title}</strong>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-muted transition group-hover:text-blue-700">
+                  Generate notes <ChevronRight size={15} />
+                </span>
               </button>
             );
           })}
@@ -625,11 +677,17 @@ function PdfPanel({ onGenerate }) {
 
   return (
     <ToolShell view="pdf" eyebrow="PDF summary" title="Summarize study PDFs" description="Upload notes, chapters, or handouts and turn them into structured revision points.">
-      <label className="grid min-h-12 cursor-pointer place-items-center rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 py-5 text-center font-bold text-blue-700">
+      <label className="group grid min-h-44 cursor-pointer place-items-center rounded-lg border border-dashed border-blue-300 bg-gradient-to-br from-blue-50 to-white px-5 py-6 text-center transition hover:border-blue-500 hover:bg-blue-50">
         <input className="hidden" type="file" accept="application/pdf" onChange={event => setFile(event.target.files?.[0] || null)} />
-        {file ? file.name : "Choose a PDF file"}
+        <span>
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-100 transition group-hover:-translate-y-0.5">
+            <UploadCloud size={22} />
+          </span>
+          <strong className="mt-4 block text-ink">{file ? file.name : "Choose a PDF file"}</strong>
+          <span className="mt-1 block text-sm text-muted">Upload class notes, chapters, or handouts</span>
+        </span>
       </label>
-      {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
+      {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>}
       <button type="button" className="primary-btn" onClick={summarizePdf} disabled={loading}>
         {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
         Summarize PDF
@@ -680,9 +738,18 @@ function VideoPanel({ onGenerate }) {
 
   return (
     <ToolShell view="video" eyebrow="Video summary" title="Summarize YouTube lectures" description="Paste a lecture link and optional transcript or timestamps to generate clean study notes.">
-      <input className="field" type="url" placeholder="Paste YouTube lecture link" value={url} onChange={event => setUrl(event.target.value)} />
-      <textarea className="textarea-field" rows={4} placeholder="Paste transcript or timestamps (optional)" value={extraNotes} onChange={event => setExtraNotes(event.target.value)} />
-      {error && <p className="text-sm font-semibold text-rose-600">{error}</p>}
+      <label className="grid gap-2 text-sm font-bold text-slate-700">
+        Lecture URL
+        <span className="relative block">
+          <Play className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-rose-500" size={18} />
+          <input className="field bg-white pl-10" type="url" placeholder="Paste YouTube lecture link" value={url} onChange={event => setUrl(event.target.value)} />
+        </span>
+      </label>
+      <label className="grid gap-2 text-sm font-bold text-slate-700">
+        Transcript or timestamps
+        <textarea className="textarea-field bg-white" rows={4} placeholder="Paste transcript or timestamps (optional)" value={extraNotes} onChange={event => setExtraNotes(event.target.value)} />
+      </label>
+      {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p>}
       <button type="button" className="primary-btn" onClick={summarizeVideo} disabled={loading}>
         {loading ? <Loader2 className="animate-spin" size={18} /> : <ListChecks size={18} />}
         Summarize Lecture
@@ -730,28 +797,44 @@ function PomodoroPanel() {
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
   const seconds = String(remaining % 60).padStart(2, "0");
   const progress = 100 - (remaining / POMODORO_DURATIONS[mode]) * 100;
+  const modeLabels = {
+    focus: "Deep focus",
+    short: "Short break",
+    long: "Long break"
+  };
 
   return (
     <ToolShell view="pomodoro" eyebrow="Pomodoro" title="Run focused study sprints" description="Use focus and break modes to study with a simple Pomodoro timer.">
-      <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-5 text-center">
-        <div className="text-5xl font-black text-ink">{minutes}:{seconds}</div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-          <span className="block h-full rounded-full bg-amber-500 transition-all" style={{ width: `${progress}%` }} />
+      <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 text-center">
+        <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
+        <div
+          className="mx-auto mt-4 grid h-48 w-48 place-items-center rounded-full"
+          style={{ background: `conic-gradient(#f59e0b ${progress}%, #fff7ed ${progress}% 100%)` }}
+        >
+          <div className="grid h-40 w-40 place-items-center rounded-full border border-amber-100 bg-white shadow-tight">
+            <div>
+              <div className="text-5xl font-black text-ink">{minutes}:{seconds}</div>
+              <div className="mt-1 text-xs font-bold uppercase text-muted">{running ? "Running" : "Ready"}</div>
+            </div>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-2">
         {["focus", "short", "long"].map(item => (
-          <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-10 rounded-lg border border-line bg-slate-50 font-bold capitalize", mode === item && "border-blue-300 bg-blue-50 text-blue-700")}>
+          <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-11 rounded-lg border border-line bg-white font-bold capitalize transition hover:border-amber-300 hover:bg-amber-50", mode === item && "border-amber-300 bg-amber-50 text-amber-800")}>
             {item === "short" ? "Break" : item === "long" ? "Long" : "Focus"}
           </button>
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <button className="primary-btn" onClick={toggleTimer}>
-          <Play size={18} />
+          {running ? <Pause size={18} /> : <Play size={18} />}
           {running ? "Pause" : "Start"}
         </button>
-        <button className="ghost-btn" onClick={() => changeMode(mode)}>Reset</button>
+        <button className="ghost-btn" onClick={() => changeMode(mode)}>
+          <RotateCcw size={17} />
+          Reset
+        </button>
       </div>
     </ToolShell>
   );
@@ -805,17 +888,32 @@ function TasksPanel() {
     setTaskText("");
   }
 
+  const completedTasks = tasks.filter(task => task.done).length;
+  const taskProgress = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0;
+
   return (
     <ToolShell view="tasks" eyebrow="Tasks" title="Plan goals and tasks" description="Set today's goal, add study tasks, and mark them complete as you work.">
-      <input className="field" placeholder="Today's study goal" value={goal} onChange={event => setGoal(event.target.value)} />
+      <div className="rounded-lg border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-4">
+        <label className="grid gap-2 text-sm font-bold text-teal-800">
+          Today's study goal
+          <input className="field bg-white" placeholder="Example: Revise DBMS normalization" value={goal} onChange={event => setGoal(event.target.value)} />
+        </label>
+        <div className="mt-4 flex items-center justify-between text-sm font-bold text-muted">
+          <span>{completedTasks}/{tasks.length} tasks complete</span>
+          <span>{taskProgress}%</span>
+        </div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+          <span className="block h-full rounded-full bg-teal-600 transition-all" style={{ width: `${taskProgress}%` }} />
+        </div>
+      </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-        <input className="field" placeholder="Add task" value={taskText} onChange={event => setTaskText(event.target.value)} onKeyDown={event => event.key === "Enter" && addTask()} />
+        <input className="field bg-white" placeholder="Add a focused task" value={taskText} onChange={event => setTaskText(event.target.value)} onKeyDown={event => event.key === "Enter" && addTask()} />
         <button className="primary-btn" onClick={addTask}><Plus size={18} /> Add</button>
       </div>
       <ul className="grid max-h-72 gap-2 overflow-auto">
-        {!tasks.length && <li className="rounded-lg border border-line bg-slate-50 p-3 text-muted">No tasks yet.</li>}
+        {!tasks.length && <li className="rounded-lg border border-line bg-slate-50 p-4 text-muted">No tasks yet. Add your first study task above.</li>}
         {tasks.map(task => (
-          <li key={task.id} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-slate-50 p-3">
+          <li key={task.id} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white p-3 shadow-tight">
             <label className="flex min-w-0 items-center gap-3">
               <input type="checkbox" checked={task.done} onChange={event => setTasks(tasks.map(item => item.id === task.id ? { ...item, done: event.target.checked } : item))} />
               <span className={classNames("break-words", task.done && "text-muted line-through")}>{task.text}</span>
@@ -897,12 +995,31 @@ function MusicPanel() {
 
   return (
     <ToolShell view="music" eyebrow="Focus music" title="Play ambient study sound" description="Choose a sound profile and keep it low while you read, revise, or code.">
-      <div className="grid gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-        <select className="field bg-white" value={sound} onChange={event => setSound(event.target.value)}>
-          <option value="rain">Soft rain</option>
-          <option value="deep">Deep focus</option>
-          <option value="white">White noise</option>
-        </select>
+      <div className="grid gap-4 rounded-lg border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4">
+        <div className="grid gap-2 sm:grid-cols-3">
+          {[
+            ["rain", "Soft rain"],
+            ["deep", "Deep focus"],
+            ["white", "White noise"]
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSound(value)}
+              className={classNames(
+                "min-h-11 rounded-lg border border-line bg-white px-3 text-sm font-bold text-muted transition hover:border-indigo-300 hover:bg-indigo-50",
+                sound === value && "border-indigo-300 bg-indigo-50 text-indigo-700"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex h-16 items-end justify-center gap-1 rounded-lg border border-white bg-white/70 p-3">
+          {[28, 44, 34, 58, 42, 64, 38, 52, 30, 46].map((height, index) => (
+            <span key={index} className={classNames("w-2 rounded-full bg-indigo-500/70", playing && "music-bar")} style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }} />
+          ))}
+        </div>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           Volume
           <input type="range" min="0" max="100" value={volume} onChange={event => setVolume(Number(event.target.value))} />
@@ -922,26 +1039,29 @@ function ToolShell({ view, eyebrow, title, description, children }) {
   const Icon = meta.icon;
 
   return (
-    <section className={classNames("mt-7 grid overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br p-5 shadow-soft sm:p-6 lg:grid-cols-[0.82fr_1.18fr]", tone.shell)}>
-      <div className="flex min-h-64 flex-col justify-between gap-6">
+    <section className={classNames("mt-7 grid overflow-hidden rounded-xl border border-white/80 bg-gradient-to-br p-4 shadow-soft sm:p-6 lg:grid-cols-[0.84fr_1.16fr]", tone.shell)}>
+      <div className="relative flex min-h-64 flex-col justify-between gap-6 p-1 sm:p-2">
+        <span className={classNames("absolute left-0 top-2 h-16 w-1 rounded-full", tone.rail)} />
         <div>
-          <span className="eyebrow"><Sparkles size={15} /> {eyebrow}</span>
-          <h2 className="mt-3 text-3xl font-black leading-tight text-ink sm:text-4xl">{title}</h2>
+          <span className="eyebrow pl-4"><Sparkles size={15} /> {eyebrow}</span>
+          <h2 className="mt-3 max-w-md pl-4 text-3xl font-black leading-tight text-ink sm:text-4xl">{title}</h2>
           <p className="mt-3 max-w-md leading-7 text-muted">{description}</p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div className={classNames("rounded-xl border px-4 py-3 text-sm font-bold", tone.soft)}>
+          <div className={classNames("rounded-lg border px-4 py-3 text-sm font-bold", tone.soft)}>
+            <span className="block text-xs uppercase opacity-70">Mode</span>
             {meta.metric}
           </div>
-          <div className="rounded-xl border border-line bg-white/80 px-4 py-3 text-sm font-bold text-slate-700">
-            Full-stack workflow
+          <div className="rounded-lg border border-line bg-white/80 px-4 py-3 text-sm font-bold text-slate-700">
+            <span className="block text-xs uppercase text-muted">Workflow</span>
+            {meta.detail}
           </div>
         </div>
       </div>
 
-      <article className="relative grid gap-4 rounded-2xl border border-white/80 bg-white/[0.92] p-5 shadow-tight backdrop-blur">
-        <span className={classNames("absolute -top-5 right-5 grid h-12 w-12 place-items-center rounded-xl shadow-lg", tone.icon)}>
+      <article className="relative grid gap-4 rounded-lg border border-white/80 bg-white/[0.94] p-5 shadow-tight backdrop-blur">
+        <span className={classNames("absolute -top-5 right-5 grid h-12 w-12 place-items-center rounded-lg shadow-lg", tone.icon)}>
           <Icon size={22} />
         </span>
         {children}
@@ -994,23 +1114,23 @@ function HomePage({ activeView, setActiveView, result, setResult }) {
       {activeView === "pomodoro" && <PomodoroPanel />}
       {activeView === "tasks" && <TasksPanel />}
       {activeView === "music" && <MusicPanel />}
-      <NotesResult result={result} activeView={activeView} />
+      {["home", "pdf", "video"].includes(activeView) && <NotesResult result={result} activeView={activeView} />}
     </>
   );
 }
 
 function LectureCard({ lecture, custom, onDelete }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-line bg-white shadow-tight transition hover:-translate-y-0.5 hover:shadow-soft">
+    <article className="group overflow-hidden rounded-lg border border-line bg-white shadow-tight transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-soft">
       <a href={lecture.url} target="_blank" rel="noreferrer" className="relative block aspect-video overflow-hidden bg-slate-100">
-        <img src={lecture.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80"} alt={`${lecture.title} thumbnail`} className="h-full w-full object-cover transition hover:scale-105" />
+        <img src={lecture.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80"} alt={`${lecture.title} thumbnail`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
         <span className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center rounded-full bg-white text-blue-700 shadow-soft">
           <Play size={18} />
         </span>
       </a>
       <div className="grid min-h-52 gap-2 p-4">
         <span className="w-fit rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-extrabold uppercase text-blue-700">{lecture.label || lecture.category}</span>
-        <h2 className="text-lg font-extrabold text-ink">{lecture.title}</h2>
+        <h2 className="text-lg font-extrabold leading-snug text-ink">{lecture.title}</h2>
         <p className="leading-7 text-muted">{lecture.description || lecture.notes || "Saved personal playlist."}</p>
         <div className="mt-auto flex items-center justify-between gap-3 pt-3">
           <a href={lecture.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-bold text-blue-700">
@@ -1098,21 +1218,33 @@ function LecturesPage({ token, user, onOpenAuth }) {
 
   return (
     <>
-      <section className="mt-7 grid gap-5 overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-white via-blue-50 to-teal-50 p-5 shadow-soft lg:grid-cols-[1fr_360px] lg:items-center">
+      <section className="mt-7 grid gap-5 overflow-hidden rounded-xl border border-white/80 bg-gradient-to-br from-white via-blue-50 to-teal-50 p-5 shadow-soft lg:grid-cols-[1fr_380px] lg:items-center">
         <div>
           <span className="eyebrow"><BookOpen size={15} /> Curated lectures</span>
           <h1 className="mt-2 text-4xl font-black leading-tight text-ink">Watch lectures with thumbnails.</h1>
           <p className="mt-3 leading-7 text-muted">Search by topic, open curated lectures, or save your own MongoDB-backed playlists.</p>
+          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+            {[
+              ["6", "Curated sets"],
+              ["4", "Study tracks"],
+              ["HD", "Thumbnails"]
+            ].map(([value, label]) => (
+              <div key={label} className="rounded-lg border border-white/80 bg-white/80 p-3 shadow-tight">
+                <strong className="block text-xl text-ink">{value}</strong>
+                <span className="text-xs font-bold uppercase text-muted">{label}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <label className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input className="field pl-10" type="search" placeholder="Search lectures, creators, or subjects" value={query} onChange={event => setQuery(event.target.value)} />
+          <input className="field bg-white pl-10" type="search" placeholder="Search lectures, creators, or subjects" value={query} onChange={event => setQuery(event.target.value)} />
         </label>
       </section>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {["all", "programming", "web", "dsa", "cs"].map(item => (
-          <button key={item} className={classNames("min-h-10 rounded-lg border border-line bg-white px-3 font-bold capitalize", filter === item && "border-blue-300 bg-blue-50 text-blue-700")} onClick={() => setFilter(item)}>
+          <button key={item} className={classNames("min-h-10 rounded-lg border border-line bg-white px-4 font-bold capitalize shadow-tight transition hover:border-blue-300 hover:bg-blue-50", filter === item && "border-blue-300 bg-blue-50 text-blue-700")} onClick={() => setFilter(item)}>
             {item === "cs" ? "CS Core" : item}
           </button>
         ))}
@@ -1129,17 +1261,17 @@ function LecturesPage({ token, user, onOpenAuth }) {
           </span>
         </div>
 
-        <form onSubmit={addPlaylist} className="mt-5 grid gap-3 rounded-2xl border border-line bg-slate-50 p-4 lg:grid-cols-[1fr_1.3fr_140px_1fr_auto]">
-          <input className="field" placeholder="Playlist title" value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} required />
-          <input className="field" placeholder="YouTube playlist or video link" value={form.url} onChange={event => setForm({ ...form, url: event.target.value })} required />
-          <select className="field" value={form.category} onChange={event => setForm({ ...form, category: event.target.value })}>
+        <form onSubmit={addPlaylist} className="mt-5 grid gap-3 rounded-lg border border-line bg-slate-50 p-4 lg:grid-cols-[1fr_1.3fr_140px_1fr_auto]">
+          <input className="field bg-white" placeholder="Playlist title" value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} required />
+          <input className="field bg-white" placeholder="YouTube playlist or video link" value={form.url} onChange={event => setForm({ ...form, url: event.target.value })} required />
+          <select className="field bg-white" value={form.category} onChange={event => setForm({ ...form, category: event.target.value })}>
             <option value="programming">Programming</option>
             <option value="web">Web</option>
             <option value="dsa">DSA</option>
             <option value="cs">CS Core</option>
             <option value="custom">Custom</option>
           </select>
-          <input className="field" placeholder="Short note or topic" value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} />
+          <input className="field bg-white" placeholder="Short note or topic" value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} />
           <button className="primary-btn"><Plus size={18} /> Add</button>
         </form>
         {message && <p className="mt-3 text-sm font-semibold text-rose-600">{message}</p>}

@@ -7,14 +7,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#111827",
+        ink: "#0f172a",
         muted: "#475467",
         line: "#dbe3ef",
         brand: "#2563eb"
       },
       boxShadow: {
-        soft: "0 16px 40px rgba(15, 23, 42, 0.08)",
-        tight: "0 1px 2px rgba(15, 23, 42, 0.05)"
+        soft: "0 20px 55px rgba(15, 23, 42, 0.10)",
+        tight: "0 1px 2px rgba(15, 23, 42, 0.06)"
       }
     }
   },
