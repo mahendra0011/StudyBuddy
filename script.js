@@ -1,5 +1,3 @@
-const GEMINI_API_KEY = "AIzaSyDkZGAjk2DzdnNHuPZ8sq91-D_pDzFRn60";
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 const state = {
     activeLectureFilter: "all",
     activePrompt: ""
@@ -138,54 +136,24 @@ function getShortTitle(prompt, category) {
     return title || `${category} notes`;
 }
 
-function buildPrompt({ prompt, category, language, depth }) {
-    return [
-        `Create ${depth} for a college student.`,
-        `Category: ${category}`,
-        `Student request: ${prompt}`,
-        `Language: ${language}`,
-        "",
-        "Format the answer in clean Markdown.",
-        "Use this exact structure:",
-        "1. Short introduction",
-        "2. Key concepts and definitions",
-        "3. Step-by-step explanation",
-        "4. Advantages and disadvantages, if relevant",
-        "5. Real-world applications or examples",
-        "6. Important exam points",
-        "7. Glossary of technical terms",
-        "",
-        "Keep the answer clear, practical, and easy to revise."
-    ].join("\n");
-}
-
 async function generateNotes(formData) {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            contents: [{
-                parts: [{ text: buildPrompt(formData) }]
-            }],
-            generationConfig: {
-                temperature: 0.55,
-                topP: 0.9,
-                maxOutputTokens: 5000
-            }
-        })
+        body: JSON.stringify(formData)
     });
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const status = errorData.error?.status;
-        const message = errorData.error?.message || `Request failed with status ${response.status}`;
+        const status = errorData.status || errorData.error?.status;
+        const message = errorData.message || errorData.error?.message || `Request failed with status ${response.status}`;
         throw new Error(status ? `${status}: ${message}` : message);
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.map(part => part.text || "").join("\n").trim();
+    const text = data?.text?.trim();
 
     if (!text) {
         throw new Error("Gemini returned an empty response.");
@@ -273,6 +241,10 @@ function friendlyErrorMessage(error) {
 
     if (normalized.includes("quota") || normalized.includes("resource_exhausted")) {
         return "Gemini is connected, but this API key has no available quota right now. Check the key's Google AI Studio quota or add billing, then try again.";
+    }
+
+    if (normalized.includes("missing_api_key") || normalized.includes("not configured")) {
+        return "Gemini is not configured on the server. Add GEMINI_API_KEY in your Render environment variables and redeploy.";
     }
 
     if (normalized.includes("leaked")) {
