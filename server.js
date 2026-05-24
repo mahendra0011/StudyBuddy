@@ -1,16 +1,24 @@
 const express = require("express");
+const multer = require("multer");
 const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 4173;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const GEMINI_MODEL_FALLBACKS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-001"];
 const GEMINI_REQUEST_TIMEOUT_MS = 30000;
 const GEMINI_STREAM_IDLE_TIMEOUT_MS = 15000;
+const PDF_UPLOAD_LIMIT_BYTES = 12 * 1024 * 1024;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(__dirname));
+
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: PDF_UPLOAD_LIMIT_BYTES }
+});
 
 function getGeminiModelCandidates() {
     return Array.from(new Set([GEMINI_MODEL, ...GEMINI_MODEL_FALLBACKS].filter(Boolean)));
@@ -18,6 +26,65 @@ function getGeminiModelCandidates() {
 
 function getGeminiUrl(model, method) {
     return `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`;
+}
+
+function getYouTubeVideoId(value = "") {
+    const input = String(value).trim();
+
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+        return input;
+    }
+
+    try {
+        const url = new URL(input);
+
+        if (url.hostname.includes("youtu.be")) {
+            return url.pathname.split("/").filter(Boolean)[0] || "";
+        }
+
+        if (url.hostname.includes("youtube.com")) {
+            const fromQuery = url.searchParams.get("v");
+            if (fromQuery) {
+                return fromQuery;
+            }
+
+            const parts = url.pathname.split("/").filter(Boolean);
+            const shortPaths = ["embed", "shorts", "live"];
+            const pathIndex = shortPaths.findIndex(part => parts.includes(part));
+
+            if (pathIndex !== -1) {
+                const marker = shortPaths[pathIndex];
+                const markerIndex = parts.indexOf(marker);
+                return parts[markerIndex + 1] || "";
+            }
+        }
+    } catch (error) {
+        return "";
+    }
+
+    return "";
+}
+
+function normalizeDuration(value = "") {
+    const match = value.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+
+    if (!match) {
+        return "";
+    }
+
+    const hours = Number(match[1] || 0);
+    const minutes = Number(match[2] || 0);
+    const seconds = Number(match[3] || 0);
+    const parts = [];
+
+    if (hours) {
+        parts.push(String(hours));
+    }
+
+    parts.push(String(minutes).padStart(hours ? 2 : 1, "0"));
+    parts.push(String(seconds).padStart(2, "0"));
+
+    return parts.join(":");
 }
 
 function getMaxOutputTokens(depth) {
@@ -94,6 +161,36 @@ function buildGeminiRequestBody({ prompt, category, language, depth }) {
             topP: 0.8,
             maxOutputTokens: getMaxOutputTokens(depth)
         }
+    };
+}
+
+async function extractPdfTextFromBuffer(buffer) {
+    const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const pdf = await pdfjsLib.getDocument({
+        data: new Uint8Array(buffer),
+        disableWorker: true
+    }).promise;
+    const pageLimit = Math.min(pdf.numPages, 35);
+    const pages = [];
+
+    for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const pageText = content.items
+            .map(item => item.str || "")
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (pageText) {
+            pages.push(`Page ${pageNumber}: ${pageText}`);
+        }
+    }
+
+    return {
+        text: pages.join("\n\n"),
+        pageCount: pdf.numPages,
+        pageLimit
     };
 }
 
@@ -261,6 +358,106 @@ app.post("/api/generate", async (req, res) => {
     }
 });
 
+app.post("/api/youtube", async (req, res) => {
+    const { url } = req.body || {};
+    const videoId = getYouTubeVideoId(url);
+
+    if (!videoId) {
+        return res.status(400).json({
+            status: "BAD_REQUEST",
+            message: "A valid YouTube video URL is required."
+        });
+    }
+
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    if (!YOUTUBE_API_KEY) {
+        return res.json({
+            videoId,
+            url: videoUrl,
+            warning: "YOUTUBE_API_KEY is not configured on the server."
+        });
+    }
+
+    try {
+        const apiUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+        apiUrl.searchParams.set("part", "snippet,contentDetails");
+        apiUrl.searchParams.set("id", videoId);
+        apiUrl.searchParams.set("key", YOUTUBE_API_KEY);
+
+        const response = await fetchWithTimeout(apiUrl.toString());
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return res.status(response.status).json({
+                status: data?.error?.status || "YOUTUBE_ERROR",
+                message: data?.error?.message || `YouTube request failed with status ${response.status}`
+            });
+        }
+
+        const video = data?.items?.[0];
+
+        if (!video) {
+            return res.status(404).json({
+                status: "NOT_FOUND",
+                message: "YouTube video was not found."
+            });
+        }
+
+        return res.json({
+            videoId,
+            url: videoUrl,
+            title: video.snippet?.title || "",
+            channelTitle: video.snippet?.channelTitle || "",
+            description: video.snippet?.description || "",
+            publishedAt: video.snippet?.publishedAt || "",
+            duration: normalizeDuration(video.contentDetails?.duration || "")
+        });
+    } catch (error) {
+        return res.status(502).json({
+            status: "NETWORK_ERROR",
+            message: error.message || "The server could not reach YouTube."
+        });
+    }
+});
+
+app.post("/api/pdf-text", upload.single("pdf"), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({
+            status: "BAD_REQUEST",
+            message: "A PDF file is required."
+        });
+    }
+
+    if (req.file.mimetype !== "application/pdf" && !req.file.originalname.toLowerCase().endsWith(".pdf")) {
+        return res.status(400).json({
+            status: "BAD_REQUEST",
+            message: "Please upload a valid PDF file."
+        });
+    }
+
+    try {
+        const extracted = await extractPdfTextFromBuffer(req.file.buffer);
+
+        if (!extracted.text.trim()) {
+            return res.status(422).json({
+                status: "EMPTY_PDF",
+                message: "No readable text was found in this PDF."
+            });
+        }
+
+        return res.json({
+            fileName: req.file.originalname,
+            ...extracted
+        });
+    } catch (error) {
+        return res.status(422).json({
+            status: "PDF_PARSE_ERROR",
+            message: error.message || "Could not read this PDF."
+        });
+    }
+});
+
 app.post("/api/generate/stream", async (req, res) => {
     const { prompt, category, language, depth } = req.body || {};
 
@@ -370,6 +567,17 @@ app.post("/api/generate/stream", async (req, res) => {
 
         return res.status(502).json(payload);
     }
+});
+
+app.use((error, req, res, next) => {
+    if (error instanceof multer.MulterError) {
+        return res.status(413).json({
+            status: "UPLOAD_TOO_LARGE",
+            message: "PDF upload is too large. Use a file under 12 MB."
+        });
+    }
+
+    return next(error);
 });
 
 app.get("*", (req, res) => {

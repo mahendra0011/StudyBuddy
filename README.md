@@ -10,6 +10,9 @@ The Gemini API is called through a small Node/Express backend so the API key can
 - Category shortcuts for DBMS, OS, DSA, AI, Java, and Web topics
 - Gemini-powered note generation through `/api/generate/stream`
 - Claude/ChatGPT-style live typing while notes generate
+- PDF summarizer with backend text extraction
+- YouTube lecture summarizer with server-side video metadata lookup
+- Pomodoro timer, study goals, task planner, and focus music
 - Markdown-style AI output rendered as clean notes
 - PDF download for generated notes
 - Lecture page with thumbnails, filters, and playlist links
@@ -34,6 +37,7 @@ Create a local `.env` file or set environment variables before starting:
 ```text
 GEMINI_API_KEY=your_new_gemini_api_key_here
 GEMINI_MODEL=gemini-1.5-flash-latest
+YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
 Start the app:
@@ -68,6 +72,12 @@ The API key must be configured as:
 GEMINI_API_KEY=your_new_gemini_api_key_here
 ```
 
+YouTube lecture metadata uses:
+
+```text
+YOUTUBE_API_KEY=your_youtube_data_api_key_here
+```
+
 ## Deploy on Render
 
 Use a **Web Service**, not a Static Site.
@@ -82,6 +92,7 @@ Add these Render environment variables:
 ```text
 GEMINI_API_KEY=your_new_gemini_api_key_here
 GEMINI_MODEL=gemini-1.5-flash-latest
+YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
 ## Important Security Note

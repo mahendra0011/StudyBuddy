@@ -1,9 +1,23 @@
 const state = {
     activeLectureFilter: "all",
-    activePrompt: ""
+    activePrompt: "",
+    pomodoroMode: "focus",
+    pomodoroRemaining: 25 * 60,
+    pomodoroTimer: null,
+    pomodoroRunning: false,
+    focusAudio: null,
+    tasks: []
 };
 
 const STREAM_STALL_TIMEOUT_MS = 9000;
+const MAX_SUMMARY_TEXT_CHARS = 28000;
+const TASK_STORAGE_KEY = "notesgpt-study-tasks";
+const GOAL_STORAGE_KEY = "notesgpt-study-goal";
+const POMODORO_DURATIONS = {
+    focus: 25 * 60,
+    short: 5 * 60,
+    long: 15 * 60
+};
 
 function escapeHTML(value) {
     return String(value)
@@ -490,6 +504,395 @@ function wait(ms) {
     });
 }
 
+function getCurrentLanguage() {
+    return document.getElementById("languageSelect")?.value || "English";
+}
+
+function getCurrentDepth() {
+    return document.getElementById("depthSelect")?.value || "exam revision";
+}
+
+function trimForSummary(text) {
+    const compact = String(text || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    return compact.length > MAX_SUMMARY_TEXT_CHARS
+        ? `${compact.slice(0, MAX_SUMMARY_TEXT_CHARS)}\n\n[Text trimmed for length]`
+        : compact;
+}
+
+function setButtonBusy(button, isBusy, busyLabel = "Working") {
+    if (!button) {
+        return;
+    }
+
+    if (!button.dataset.defaultHtml) {
+        button.dataset.defaultHtml = button.innerHTML;
+    }
+
+    button.disabled = isBusy;
+    button.innerHTML = isBusy
+        ? `<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ${busyLabel}`
+        : button.dataset.defaultHtml;
+}
+
+async function extractPdfText(file) {
+    if (!file) {
+        throw new Error("Please choose a PDF file first.");
+    }
+
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    const response = await fetch("/api/pdf-text", {
+        method: "POST",
+        body: formData
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const status = errorData.status || "PDF_ERROR";
+        const message = errorData.message || `PDF request failed with status ${response.status}`;
+        throw new Error(`${status}: ${message}`);
+    }
+
+    const data = await response.json();
+    const text = trimForSummary(data.text || "");
+
+    if (!text.trim()) {
+        throw new Error("No readable text was found in this PDF.");
+    }
+
+    return {
+        text,
+        pageCount: data.pageCount || 0,
+        pageLimit: data.pageLimit || 0
+    };
+}
+
+async function summarizePdf() {
+    const input = document.getElementById("pdfInput");
+    const button = document.getElementById("summarizePdfButton");
+    const file = input?.files?.[0];
+
+    try {
+        setButtonBusy(button, true, "Reading PDF");
+        const extracted = await extractPdfText(file);
+        const prompt = [
+            `Summarize this PDF for a student: ${file.name}`,
+            `Pages read: ${extracted.pageLimit} of ${extracted.pageCount}`,
+            "",
+            "Create clear study notes with:",
+            "1. Overview",
+            "2. Key concepts",
+            "3. Important points",
+            "4. Examples or formulas",
+            "5. Exam tips",
+            "",
+            "PDF text:",
+            extracted.text
+        ].join("\n");
+
+        setButtonBusy(button, true, "Generating");
+        await submitNotesRequest({
+            prompt,
+            category: "PDF Summary",
+            language: getCurrentLanguage(),
+            depth: getCurrentDepth()
+        });
+    } catch (error) {
+        setResultState("error", friendlyErrorMessage(error));
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+async function fetchYoutubeMetadata(url) {
+    const response = await fetch("/api/youtube", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ url })
+    });
+
+    if (!response.ok) {
+        return { url };
+    }
+
+    return response.json();
+}
+
+function buildYoutubePrompt(url, metadata, notes) {
+    const details = [
+        metadata?.title ? `Title: ${metadata.title}` : "",
+        metadata?.channelTitle ? `Channel: ${metadata.channelTitle}` : "",
+        metadata?.duration ? `Duration: ${metadata.duration}` : "",
+        metadata?.description ? `Description: ${trimForSummary(metadata.description)}` : "",
+        notes ? `Transcript or notes: ${trimForSummary(notes)}` : ""
+    ].filter(Boolean).join("\n");
+
+    return [
+        "Create study notes from this YouTube lecture.",
+        `Lecture URL: ${metadata?.url || url}`,
+        "",
+        details || "No metadata was available.",
+        "",
+        "Use this format:",
+        "1. Lecture overview",
+        "2. Key concepts",
+        "3. Timeline or topic flow",
+        "4. Important examples",
+        "5. Exam/revision points",
+        "",
+        notes
+            ? "Use the transcript or notes as the primary source."
+            : "If a transcript is not available, use the title and description, and keep the summary clear about what can be inferred."
+    ].join("\n");
+}
+
+async function summarizeYoutubeLecture() {
+    const urlInput = document.getElementById("youtubeUrlInput");
+    const notesInput = document.getElementById("youtubeNotesInput");
+    const button = document.getElementById("summarizeYoutubeButton");
+    const url = urlInput?.value.trim() || "";
+    const notes = notesInput?.value.trim() || "";
+
+    if (!url) {
+        setResultState("error", "Please paste a YouTube lecture link first.");
+        return;
+    }
+
+    try {
+        setButtonBusy(button, true, "Reading");
+        const metadata = await fetchYoutubeMetadata(url);
+        const prompt = buildYoutubePrompt(url, metadata, notes);
+
+        setButtonBusy(button, true, "Generating");
+        await submitNotesRequest({
+            prompt,
+            category: "YouTube Lecture",
+            language: getCurrentLanguage(),
+            depth: getCurrentDepth()
+        });
+    } catch (error) {
+        setResultState("error", friendlyErrorMessage(error));
+    } finally {
+        setButtonBusy(button, false);
+    }
+}
+
+function formatTimer(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updatePomodoroDisplay() {
+    const display = document.getElementById("pomodoroTime");
+    const startButton = document.getElementById("pomodoroStartButton");
+
+    if (display) {
+        display.textContent = formatTimer(state.pomodoroRemaining);
+    }
+
+    if (startButton) {
+        startButton.innerHTML = state.pomodoroRunning
+            ? '<i class="fas fa-pause" aria-hidden="true"></i> Pause'
+            : '<i class="fas fa-play" aria-hidden="true"></i> Start';
+    }
+}
+
+function stopPomodoro() {
+    if (state.pomodoroTimer) {
+        window.clearInterval(state.pomodoroTimer);
+        state.pomodoroTimer = null;
+    }
+
+    state.pomodoroRunning = false;
+    updatePomodoroDisplay();
+}
+
+function setPomodoroMode(mode) {
+    state.pomodoroMode = mode;
+    state.pomodoroRemaining = POMODORO_DURATIONS[mode] || POMODORO_DURATIONS.focus;
+    stopPomodoro();
+    document.querySelectorAll("[data-pomodoro-mode]").forEach(button => {
+        button.classList.toggle("active", button.dataset.pomodoroMode === mode);
+    });
+    updatePomodoroDisplay();
+}
+
+function togglePomodoro() {
+    if (state.pomodoroRunning) {
+        stopPomodoro();
+        return;
+    }
+
+    state.pomodoroRunning = true;
+    state.pomodoroTimer = window.setInterval(() => {
+        state.pomodoroRemaining = Math.max(0, state.pomodoroRemaining - 1);
+        updatePomodoroDisplay();
+
+        if (state.pomodoroRemaining === 0) {
+            stopPomodoro();
+        }
+    }, 1000);
+    updatePomodoroDisplay();
+}
+
+function loadStudyTasks() {
+    try {
+        state.tasks = JSON.parse(window.localStorage.getItem(TASK_STORAGE_KEY) || "[]");
+    } catch (error) {
+        state.tasks = [];
+    }
+
+    const goalInput = document.getElementById("studyGoalInput");
+    if (goalInput) {
+        goalInput.value = window.localStorage.getItem(GOAL_STORAGE_KEY) || "";
+    }
+}
+
+function saveStudyTasks() {
+    window.localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(state.tasks));
+}
+
+function renderStudyTasks() {
+    const list = document.getElementById("taskList");
+
+    if (!list) {
+        return;
+    }
+
+    if (!state.tasks.length) {
+        list.innerHTML = '<li class="empty-task">No tasks yet.</li>';
+        return;
+    }
+
+    list.innerHTML = state.tasks.map(task => `
+        <li class="${task.done ? "done" : ""}" data-task-id="${escapeHTML(task.id)}">
+            <label>
+                <input type="checkbox" ${task.done ? "checked" : ""}>
+                <span>${escapeHTML(task.text)}</span>
+            </label>
+            <button type="button" title="Delete task">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+        </li>
+    `).join("");
+}
+
+function addStudyTask() {
+    const input = document.getElementById("studyTaskInput");
+    const text = input?.value.trim() || "";
+
+    if (!text) {
+        return;
+    }
+
+    state.tasks.unshift({
+        id: window.crypto?.randomUUID?.() || `${Date.now()}`,
+        text,
+        done: false
+    });
+    input.value = "";
+    saveStudyTasks();
+    renderStudyTasks();
+}
+
+function createNoiseBuffer(context) {
+    const bufferSize = context.sampleRate * 2;
+    const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
+    const output = buffer.getChannelData(0);
+    let last = 0;
+
+    for (let index = 0; index < bufferSize; index += 1) {
+        const white = Math.random() * 2 - 1;
+        last = (last + (0.02 * white)) / 1.02;
+        output[index] = last * 3.5;
+    }
+
+    return buffer;
+}
+
+function stopFocusMusic() {
+    if (!state.focusAudio) {
+        return;
+    }
+
+    state.focusAudio.nodes.forEach(node => {
+        try {
+            node.stop?.();
+        } catch (error) {
+            // Already stopped.
+        }
+        node.disconnect?.();
+    });
+    state.focusAudio.context.close?.();
+    state.focusAudio = null;
+
+    const button = document.getElementById("focusMusicButton");
+    if (button) {
+        button.innerHTML = '<i class="fas fa-play" aria-hidden="true"></i> Play Focus';
+    }
+}
+
+async function startFocusMusic() {
+    stopFocusMusic();
+
+    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextConstructor) {
+        setResultState("error", "Focus music is not supported in this browser.");
+        return;
+    }
+
+    const sound = document.getElementById("focusSoundSelect")?.value || "rain";
+    const volume = Number(document.getElementById("focusVolumeInput")?.value || 35) / 100;
+    const context = new AudioContextConstructor();
+    const gain = context.createGain();
+    gain.gain.value = Math.max(0.02, volume * 0.35);
+    gain.connect(context.destination);
+
+    const nodes = [gain];
+
+    if (sound === "deep") {
+        const oscillator = context.createOscillator();
+        const filter = context.createBiquadFilter();
+        oscillator.type = "sine";
+        oscillator.frequency.value = 96;
+        filter.type = "lowpass";
+        filter.frequency.value = 420;
+        oscillator.connect(filter).connect(gain);
+        oscillator.start();
+        nodes.push(oscillator, filter);
+    } else {
+        const source = context.createBufferSource();
+        const filter = context.createBiquadFilter();
+        source.buffer = createNoiseBuffer(context);
+        source.loop = true;
+        filter.type = sound === "white" ? "highpass" : "lowpass";
+        filter.frequency.value = sound === "white" ? 900 : 950;
+        source.connect(filter).connect(gain);
+        source.start();
+        nodes.push(source, filter);
+    }
+
+    state.focusAudio = { context, nodes, gain };
+
+    const button = document.getElementById("focusMusicButton");
+    if (button) {
+        button.innerHTML = '<i class="fas fa-stop" aria-hidden="true"></i> Stop Focus';
+    }
+}
+
+function updateFocusVolume() {
+    if (!state.focusAudio?.gain) {
+        return;
+    }
+
+    const volume = Number(document.getElementById("focusVolumeInput")?.value || 35) / 100;
+    state.focusAudio.gain.gain.value = Math.max(0.02, volume * 0.35);
+}
+
 function getLiveTypingChunkSize(pendingLength) {
     if (pendingLength > 220) {
         return 32;
@@ -661,6 +1064,97 @@ function downloadPDF() {
     }).from(element).save();
 }
 
+function initStudyTools() {
+    const pdfInput = document.getElementById("pdfInput");
+    const pdfFileName = document.getElementById("pdfFileName");
+    const pdfButton = document.getElementById("summarizePdfButton");
+    const youtubeButton = document.getElementById("summarizeYoutubeButton");
+    const pomodoroStartButton = document.getElementById("pomodoroStartButton");
+    const pomodoroResetButton = document.getElementById("pomodoroResetButton");
+    const addTaskButton = document.getElementById("addTaskButton");
+    const taskInput = document.getElementById("studyTaskInput");
+    const goalInput = document.getElementById("studyGoalInput");
+    const taskList = document.getElementById("taskList");
+    const focusButton = document.getElementById("focusMusicButton");
+    const focusVolumeInput = document.getElementById("focusVolumeInput");
+    const focusSoundSelect = document.getElementById("focusSoundSelect");
+
+    pdfInput?.addEventListener("change", () => {
+        const file = pdfInput.files?.[0];
+        if (pdfFileName) {
+            pdfFileName.textContent = file?.name || "Choose a PDF file";
+        }
+    });
+
+    pdfButton?.addEventListener("click", summarizePdf);
+    youtubeButton?.addEventListener("click", summarizeYoutubeLecture);
+
+    document.querySelectorAll("[data-pomodoro-mode]").forEach(button => {
+        button.addEventListener("click", () => {
+            setPomodoroMode(button.dataset.pomodoroMode || "focus");
+        });
+    });
+
+    pomodoroStartButton?.addEventListener("click", togglePomodoro);
+    pomodoroResetButton?.addEventListener("click", () => {
+        setPomodoroMode(state.pomodoroMode);
+    });
+    updatePomodoroDisplay();
+
+    loadStudyTasks();
+    renderStudyTasks();
+
+    goalInput?.addEventListener("input", () => {
+        window.localStorage.setItem(GOAL_STORAGE_KEY, goalInput.value.trim());
+    });
+
+    addTaskButton?.addEventListener("click", addStudyTask);
+    taskInput?.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            addStudyTask();
+        }
+    });
+
+    taskList?.addEventListener("change", event => {
+        const item = event.target.closest("li[data-task-id]");
+        const task = state.tasks.find(entry => entry.id === item?.dataset.taskId);
+
+        if (task && event.target.matches("input[type='checkbox']")) {
+            task.done = event.target.checked;
+            saveStudyTasks();
+            renderStudyTasks();
+        }
+    });
+
+    taskList?.addEventListener("click", event => {
+        const button = event.target.closest("button");
+        const item = event.target.closest("li[data-task-id]");
+
+        if (!button || !item) {
+            return;
+        }
+
+        state.tasks = state.tasks.filter(task => task.id !== item.dataset.taskId);
+        saveStudyTasks();
+        renderStudyTasks();
+    });
+
+    focusButton?.addEventListener("click", () => {
+        if (state.focusAudio) {
+            stopFocusMusic();
+        } else {
+            startFocusMusic();
+        }
+    });
+    focusVolumeInput?.addEventListener("input", updateFocusVolume);
+    focusSoundSelect?.addEventListener("change", () => {
+        if (state.focusAudio) {
+            startFocusMusic();
+        }
+    });
+}
+
 function initHomeGenerator() {
     const form = document.getElementById("notesForm");
     const promptInput = document.getElementById("notePrompt");
@@ -733,5 +1227,6 @@ function initLectureFilters() {
 
 document.addEventListener("DOMContentLoaded", () => {
     initHomeGenerator();
+    initStudyTools();
     initLectureFilters();
 });
