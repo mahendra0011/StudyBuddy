@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 function getJwtSecret() {
-    return process.env.JWT_SECRET || "notesgpt-development-secret";
+    return process.env.JWT_SECRET || "studybuddy-development-secret";
 }
 
 function signToken(user) {

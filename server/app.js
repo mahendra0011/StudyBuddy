@@ -19,7 +19,7 @@ app.use(express.json({ limit: "1mb" }));
 app.get("/api/health", (req, res) => {
     res.json({
         ok: true,
-        service: "NotesGPT API"
+        service: "StudyBuddy API"
     });
 });
 

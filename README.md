@@ -1,6 +1,6 @@
-# NotesGPT
+# StudyBuddy
 
-NotesGPT is now a full-stack AI study app built with React, Tailwind CSS, Node.js, Express, and MongoDB.
+StudyBuddy is a full-stack AI study app built with React, Tailwind CSS, Node.js, Express, and MongoDB.
 
 ## Features
 
@@ -17,7 +17,7 @@ NotesGPT is now a full-stack AI study app built with React, Tailwind CSS, Node.j
 ## Folder Structure
 
 ```text
-notesGPT/
+StudyBuddy/
   client/
     index.html
     vite.config.js

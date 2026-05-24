@@ -31,9 +31,12 @@ import { apiRequest, streamGenerateNotes } from "./services/api";
 import { categories, curatedLectures, views } from "./data/studyData";
 import { markdownToHTML } from "./utils/markdown";
 
-const AUTH_STORAGE_KEY = "notesgpt-auth";
-const TASK_STORAGE_KEY = "notesgpt-study-tasks-react";
-const GOAL_STORAGE_KEY = "notesgpt-study-goal-react";
+const AUTH_STORAGE_KEY = "studybuddy-auth";
+const TASK_STORAGE_KEY = "studybuddy-study-tasks";
+const GOAL_STORAGE_KEY = "studybuddy-study-goal";
+const LEGACY_AUTH_STORAGE_KEY = "notesgpt-auth";
+const LEGACY_TASK_STORAGE_KEY = "notesgpt-study-tasks-react";
+const LEGACY_GOAL_STORAGE_KEY = "notesgpt-study-goal-react";
 const POMODORO_DURATIONS = {
   focus: 25 * 60,
   short: 5 * 60,
@@ -117,6 +120,14 @@ function friendlyError(error) {
 
 function parseStoredAuth() {
   try {
+    const currentAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+    const legacyAuth = localStorage.getItem(LEGACY_AUTH_STORAGE_KEY);
+
+    if (!currentAuth && legacyAuth) {
+      localStorage.setItem(AUTH_STORAGE_KEY, legacyAuth);
+      localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+    }
+
     return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "null");
   } catch (error) {
     localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -133,7 +144,7 @@ function Layout({ page, activeView, user, onNavigateHome, onNavigateLectures, on
             <WandSparkles size={20} />
           </span>
           <span>
-            <strong className="block text-[0.98rem] leading-tight">NotesGPT</strong>
+            <strong className="block text-[0.98rem] leading-tight">StudyBuddy</strong>
             <small className="block text-xs text-muted">AI study workspace</small>
           </span>
         </button>
@@ -382,7 +393,7 @@ function NotesResult({ result, activeView }) {
               <WandSparkles size={20} />
             </span>
             <div>
-              <strong className="block">NotesGPT is writing</strong>
+              <strong className="block">StudyBuddy is writing</strong>
               <p className="text-sm text-muted">Structuring the answer in real time</p>
             </div>
             <div className="ml-auto flex gap-1">
@@ -727,10 +738,30 @@ function PomodoroPanel() {
 }
 
 function TasksPanel() {
-  const [goal, setGoal] = useState(() => localStorage.getItem(GOAL_STORAGE_KEY) || "");
+  const [goal, setGoal] = useState(() => {
+    const currentGoal = localStorage.getItem(GOAL_STORAGE_KEY);
+    const legacyGoal = localStorage.getItem(LEGACY_GOAL_STORAGE_KEY);
+
+    if (!currentGoal && legacyGoal) {
+      localStorage.setItem(GOAL_STORAGE_KEY, legacyGoal);
+      localStorage.removeItem(LEGACY_GOAL_STORAGE_KEY);
+      return legacyGoal;
+    }
+
+    return currentGoal || "";
+  });
   const [taskText, setTaskText] = useState("");
   const [tasks, setTasks] = useState(() => {
     try {
+      const currentTasks = localStorage.getItem(TASK_STORAGE_KEY);
+      const legacyTasks = localStorage.getItem(LEGACY_TASK_STORAGE_KEY);
+
+      if (!currentTasks && legacyTasks) {
+        localStorage.setItem(TASK_STORAGE_KEY, legacyTasks);
+        localStorage.removeItem(LEGACY_TASK_STORAGE_KEY);
+        return JSON.parse(legacyTasks || "[]");
+      }
+
       return JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "[]");
     } catch (error) {
       return [];

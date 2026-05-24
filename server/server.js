@@ -11,6 +11,6 @@ connectDatabase()
     })
     .finally(() => {
         app.listen(PORT, () => {
-            console.log(`NotesGPT API running on port ${PORT}`);
+            console.log(`StudyBuddy API running on port ${PORT}`);
         });
     });
