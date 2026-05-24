@@ -54,7 +54,7 @@ MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
 
 GEMINI_API_KEY=your_new_gemini_api_key_here
-GEMINI_MODEL=gemini-1.5-flash-latest
+GEMINI_MODEL=gemini-2.5-flash-lite
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
@@ -115,7 +115,7 @@ Add these Render environment variables:
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
 GEMINI_API_KEY=your_new_gemini_api_key_here
-GEMINI_MODEL=gemini-1.5-flash-latest
+GEMINI_MODEL=gemini-2.5-flash-lite
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 

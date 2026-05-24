@@ -1,9 +1,9 @@
-const GEMINI_MODEL_FALLBACKS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-001"];
+const GEMINI_MODEL_FALLBACKS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
 const GEMINI_REQUEST_TIMEOUT_MS = 30000;
 const GEMINI_STREAM_IDLE_TIMEOUT_MS = 15000;
 
 function getGeminiModelCandidates() {
-    const configured = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
+    const configured = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
     return Array.from(new Set([configured, ...GEMINI_MODEL_FALLBACKS].filter(Boolean)));
 }
 
@@ -107,9 +107,14 @@ function shouldTryNextModel(response, errorData) {
     const message = (errorData?.error?.message || "").toLowerCase();
 
     return response.status === 404
+        || response.status === 429
         || status === "not_found"
+        || status === "resource_exhausted"
         || message.includes("not found")
-        || message.includes("not supported");
+        || message.includes("not supported")
+        || message.includes("quota")
+        || message.includes("rate limit")
+        || message.includes("too many requests");
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = GEMINI_REQUEST_TIMEOUT_MS) {
