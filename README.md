@@ -1,130 +1,144 @@
 # NotesGPT
 
-NotesGPT is a clean AI notes generator for students. The home page works like a simple AI prompt interface: enter a topic, choose category/language/depth, and generate structured study notes with Gemini. A second page provides curated lecture playlists with thumbnails and search filters.
-
-The Gemini API is called through a small Node/Express backend so the API key can stay in server environment variables instead of frontend JavaScript.
+NotesGPT is now a full-stack AI study app built with React, Tailwind CSS, Node.js, Express, and MongoDB.
 
 ## Features
 
-- ChatGPT-style AI prompt box on the home page
-- Category shortcuts for DBMS, OS, DSA, AI, Java, and Web topics
-- Gemini-powered note generation through `/api/generate/stream`
-- Claude/ChatGPT-style live typing while notes generate
-- PDF summarizer with backend text extraction
-- YouTube lecture summarizer with server-side video metadata lookup
-- Pomodoro timer, study goals, task planner, and focus music
-- Local account flow with name, email, and password for saving personal lecture playlists
-- Markdown-style AI output rendered as clean notes
-- PDF download for generated notes
-- Lecture page with thumbnails, filters, curated links, and user-created playlists
-- Responsive light AI/SaaS-style UI
+- React single-page app with navbar-based views
+- Tailwind CSS light AI/SaaS interface
+- Gemini-powered streaming notes generation
+- PDF text extraction and summarization
+- YouTube lecture metadata and summarization
+- Pomodoro timer, study task planner, and focus music
+- MongoDB-backed signup/login with JWT
+- User-created lecture playlists stored in MongoDB
+- Express API with clean route/service/model structure
 
-## Pages
+## Folder Structure
 
-- `index.html` - main AI notes generator
-- `lectures.html` - lecture library with thumbnails
-- `search-notes.html` - redirect page kept for old links
+```text
+notesGPT/
+  client/
+    index.html
+    vite.config.js
+    tailwind.config.cjs
+    postcss.config.cjs
+    src/
+      App.jsx
+      main.jsx
+      index.css
+      data/
+      services/
+      utils/
+  server/
+    app.js
+    server.js
+    config/
+    middleware/
+    models/
+    routes/
+    services/
+  package.json
+  .env.example
+```
+
+## Environment Variables
+
+Create `.env` in the project root:
+
+```text
+PORT=4173
+CLIENT_ORIGIN=http://localhost:5173
+
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=replace_with_a_long_random_secret
+
+GEMINI_API_KEY=your_new_gemini_api_key_here
+GEMINI_MODEL=gemini-1.5-flash-latest
+YOUTUBE_API_KEY=your_youtube_data_api_key_here
+```
+
+Never put API keys in React code. Keep them in server environment variables.
 
 ## Run Locally
 
-From the project folder:
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-Create a local `.env` file or set environment variables before starting:
+Run React and Express together:
 
-```text
-GEMINI_API_KEY=your_new_gemini_api_key_here
-GEMINI_MODEL=gemini-1.5-flash-latest
-YOUTUBE_API_KEY=your_youtube_data_api_key_here
+```bash
+npm run dev
 ```
 
-Start the app:
+Open:
+
+```text
+http://localhost:5173
+```
+
+## Production Build
+
+Build React:
+
+```bash
+npm run build
+```
+
+Start Express, which serves `client/dist`:
 
 ```bash
 npm start
 ```
 
-Then open:
+Open:
 
 ```text
 http://localhost:4173
 ```
 
-## Gemini Model
-
-The app currently uses:
-
-```text
-gemini-1.5-flash-latest
-```
-
-The Gemini model is configured on the server through:
-
-```text
-GEMINI_MODEL=gemini-1.5-flash-latest
-```
-
-The API key must be configured as:
-
-```text
-GEMINI_API_KEY=your_new_gemini_api_key_here
-```
-
-YouTube lecture metadata uses:
-
-```text
-YOUTUBE_API_KEY=your_youtube_data_api_key_here
-```
-
-## Account Profile and Playlists
-
-The sign-in button uses a local browser account with name, email, and password. Each email gets its own saved lecture playlists on that device. This is a frontend-only demo flow; for real secure password/OTP accounts across devices, connect a backend auth provider such as Firebase Auth or Supabase Auth.
-
 ## Deploy on Render
 
-Use a **Web Service**, not a Static Site.
+Use a **Web Service**.
 
 ```text
-Build Command: npm install
+Build Command: npm install && npm run build
 Start Command: npm start
 ```
 
 Add these Render environment variables:
 
 ```text
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=replace_with_a_long_random_secret
 GEMINI_API_KEY=your_new_gemini_api_key_here
 GEMINI_MODEL=gemini-1.5-flash-latest
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
-## Important Security Note
+## API Routes
 
-Do not put your Gemini API key in `script.js`. Keep it in Render environment variables. If Google reports a key as leaked, revoke it and create a new one.
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `GET /api/playlists`
+- `POST /api/playlists`
+- `DELETE /api/playlists/:id`
+- `POST /api/generate`
+- `POST /api/generate/stream`
+- `POST /api/pdf-text`
+- `POST /api/youtube`
 
-## Project Files
+## Tech Stack
 
-```text
-notesGPT/
-  index.html
-  lectures.html
-  search-notes.html
-  server.js
-  package.json
-  .env.example
-  script.js
-  styles.css
-  README.md
-```
-
-## Tech Used
-
-- HTML
-- CSS
+- React
+- Tailwind CSS
 - JavaScript
-- Node.js / Express
+- Node.js
+- Express
+- MongoDB / Mongoose
 - Gemini API
-- Font Awesome icons
-- html2pdf.js
+- YouTube Data API
