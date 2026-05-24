@@ -609,6 +609,19 @@ p {
     }
 }
 
+@keyframes cursorBlink {
+    50% {
+        opacity: 0;
+    }
+}
+
+@keyframes writeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .error-state {
     color: var(--rose);
 }
@@ -668,9 +681,32 @@ p {
 }
 
 .notes-content {
+    position: relative;
     padding: clamp(20px, 3vw, 34px);
     font-size: 1rem;
     line-height: 1.78;
+}
+
+.writing-content::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    margin-left: 4px;
+    vertical-align: -0.15em;
+    border-radius: 999px;
+    background: var(--accent);
+    animation: cursorBlink 850ms steps(2, end) infinite;
+}
+
+.writing-content.done::after {
+    display: none;
+}
+
+.write-block {
+    opacity: 0;
+    transform: translateY(5px);
+    animation: writeIn 180ms ease forwards;
 }
 
 .notes-content h1,

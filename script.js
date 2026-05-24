@@ -248,7 +248,7 @@ function friendlyErrorMessage(error) {
     }
 
     if (normalized.includes("leaked")) {
-        return "Gemini rejected this API key because it was reported as leaked. Create a new key in Google AI Studio, replace it in script.js, and redeploy.";
+        return "Gemini rejected this API key because it was reported as leaked. Create a new key in Google AI Studio, update GEMINI_API_KEY in Render, and redeploy.";
     }
 
     if (normalized.includes("api key") || normalized.includes("permission") || normalized.includes("unauthorized") || normalized.includes("permission_denied")) {
@@ -266,11 +266,12 @@ function friendlyErrorMessage(error) {
     return "Failed to generate notes. Please try again in a moment.";
 }
 
-function renderNotes(formData, notes) {
+function renderNotesShell(formData, content = "", contentClass = "") {
     const safeTitle = escapeHTML(getShortTitle(formData.prompt, formData.category));
     const safeCategory = escapeHTML(formData.category);
     const safeLanguage = escapeHTML(formData.language);
     const safeDepth = escapeHTML(formData.depth);
+    const className = ["notes-content", contentClass].filter(Boolean).join(" ");
 
     return `
         <article class="notes-container" id="notesContent">
@@ -285,17 +286,108 @@ function renderNotes(formData, notes) {
                     <b>${safeDepth}</b>
                 </div>
             </header>
-            <div class="notes-content">
-                ${markdownToHTML(notes)}
+            <div class="${className}" id="notesContentBody">
+                ${content}
             </div>
         </article>
     `;
+}
+
+function renderNotes(formData, notes) {
+    return renderNotesShell(formData, markdownToHTML(notes));
 }
 
 function wait(ms) {
     return new Promise(resolve => {
         window.setTimeout(resolve, ms);
     });
+}
+
+function getNodeTextLength(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent.length;
+    }
+
+    return Array.from(node.childNodes).reduce((total, child) => total + getNodeTextLength(child), 0);
+}
+
+function getWritingSpeed(totalCharacters) {
+    return {
+        chunkSize: Math.max(4, Math.ceil(totalCharacters / 120)),
+        frameDelay: totalCharacters > 2400 ? 6 : 8
+    };
+}
+
+async function writeTextNode(text, parent, speed) {
+    if (!text.trim()) {
+        parent.appendChild(document.createTextNode(text));
+        return;
+    }
+
+    const textNode = document.createTextNode("");
+    parent.appendChild(textNode);
+
+    for (let index = 0; index < text.length; index += speed.chunkSize) {
+        textNode.textContent += text.slice(index, index + speed.chunkSize);
+        await wait(speed.frameDelay);
+    }
+}
+
+async function writeGeneratedNode(sourceNode, targetParent, speed, depth = 0) {
+    if (sourceNode.nodeType === Node.TEXT_NODE) {
+        await writeTextNode(sourceNode.textContent, targetParent, speed);
+        return;
+    }
+
+    if (sourceNode.nodeType !== Node.ELEMENT_NODE) {
+        return;
+    }
+
+    const clone = sourceNode.cloneNode(false);
+
+    if (depth === 0) {
+        clone.classList.add("write-block");
+    }
+
+    targetParent.appendChild(clone);
+
+    for (const child of Array.from(sourceNode.childNodes)) {
+        await writeGeneratedNode(child, clone, speed, depth + 1);
+    }
+}
+
+async function revealNotes(formData, notes) {
+    const html = markdownToHTML(notes);
+    setResultState("success", renderNotesShell(formData, "", "writing-content"));
+
+    const downloadButton = document.getElementById("downloadButton");
+    const target = document.getElementById("notesContentBody");
+    downloadButton?.setAttribute("disabled", "true");
+
+    if (!target) {
+        setResultState("success", renderNotes(formData, notes));
+        return;
+    }
+
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        target.innerHTML = html;
+        target.classList.add("done");
+        downloadButton?.removeAttribute("disabled");
+        return;
+    }
+
+    const template = document.createElement("template");
+    template.innerHTML = html;
+    const nodes = Array.from(template.content.childNodes);
+    const totalCharacters = Math.max(1, nodes.reduce((total, node) => total + getNodeTextLength(node), 0));
+    const speed = getWritingSpeed(totalCharacters);
+
+    for (const node of nodes) {
+        await writeGeneratedNode(node, target, speed);
+    }
+
+    target.classList.add("done");
+    downloadButton?.removeAttribute("disabled");
 }
 
 function setGenerateButtonsLoading(isLoading) {
@@ -327,11 +419,8 @@ async function submitNotesRequest(formData) {
     document.querySelector(".home-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
     try {
-        const [notes] = await Promise.all([
-            generateNotes(formData),
-            wait(900)
-        ]);
-        setResultState("success", renderNotes(formData, notes));
+        const notes = await generateNotes(formData);
+        await revealNotes(formData, notes);
     } catch (error) {
         console.warn("Notes generation failed:", error?.message || error);
         setResultState("error", friendlyErrorMessage(error));

@@ -10,24 +10,38 @@ const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(__dirname));
 
+function getMaxOutputTokens(depth) {
+    const normalizedDepth = String(depth || "").toLowerCase();
+
+    if (normalizedDepth.includes("quick") || normalizedDepth.includes("short")) {
+        return 900;
+    }
+
+    if (normalizedDepth.includes("detailed") || normalizedDepth.includes("classroom")) {
+        return 2200;
+    }
+
+    return 1400;
+}
+
 function buildPrompt({ prompt, category, language, depth }) {
     return [
-        `Create ${depth || "exam revision"} for a college student.`,
+        `Create fast, concise ${depth || "exam revision"} for a college student.`,
         `Category: ${category || "General"}`,
         `Student request: ${prompt}`,
         `Language: ${language || "English"}`,
         "",
         "Format the answer in clean Markdown.",
-        "Use this exact structure:",
+        "Use short headings and tight bullet points.",
+        "Include only the most useful sections from this structure:",
         "1. Short introduction",
-        "2. Key concepts and definitions",
+        "2. Key concepts",
         "3. Step-by-step explanation",
-        "4. Advantages and disadvantages, if relevant",
-        "5. Real-world applications or examples",
-        "6. Important exam points",
-        "7. Glossary of technical terms",
+        "4. Examples or applications",
+        "5. Important exam points",
+        "6. Glossary, only if helpful",
         "",
-        "Keep the answer clear, practical, and easy to revise."
+        "Avoid long paragraphs. Keep it clear, practical, and easy to revise."
     ].join("\n");
 }
 
@@ -65,9 +79,9 @@ app.post("/api/generate", async (req, res) => {
                     parts: [{ text: buildPrompt({ prompt, category, language, depth }) }]
                 }],
                 generationConfig: {
-                    temperature: 0.55,
-                    topP: 0.9,
-                    maxOutputTokens: 5000
+                    temperature: 0.35,
+                    topP: 0.85,
+                    maxOutputTokens: getMaxOutputTokens(depth)
                 }
             })
         });
