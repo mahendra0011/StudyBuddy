@@ -16,6 +16,8 @@ import {
   Loader2,
   LogOut,
   Mail,
+  Maximize2,
+  Minimize2,
   Music2,
   Pause,
   Play,
@@ -762,6 +764,8 @@ function PomodoroPanel() {
   const [mode, setMode] = useState("focus");
   const [remaining, setRemaining] = useState(POMODORO_DURATIONS.focus);
   const [running, setRunning] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const pomodoroRef = useRef(null);
 
   useEffect(() => {
     if (!running) {
@@ -781,6 +785,33 @@ function PomodoroPanel() {
     }
   }, [remaining]);
 
+  useEffect(() => {
+    function syncFullscreenState() {
+      if (document.fullscreenElement === pomodoroRef.current) {
+        setIsFullscreen(true);
+        return;
+      }
+
+      if (!document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    }
+
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  useEffect(() => {
+    function closeExpandedMode(event) {
+      if (event.key === "Escape" && isFullscreen && !document.fullscreenElement) {
+        setIsFullscreen(false);
+      }
+    }
+
+    window.addEventListener("keydown", closeExpandedMode);
+    return () => window.removeEventListener("keydown", closeExpandedMode);
+  }, [isFullscreen]);
+
   function changeMode(nextMode) {
     setMode(nextMode);
     setRunning(false);
@@ -794,9 +825,38 @@ function PomodoroPanel() {
     setRunning(value => !value);
   }
 
+  async function toggleFullscreen() {
+    if (!pomodoroRef.current) {
+      return;
+    }
+
+    if (document.fullscreenElement === pomodoroRef.current) {
+      await document.exitFullscreen();
+      return;
+    }
+
+    if (isFullscreen) {
+      setIsFullscreen(false);
+      return;
+    }
+
+    if (document.fullscreenEnabled && pomodoroRef.current.requestFullscreen) {
+      try {
+        await pomodoroRef.current.requestFullscreen();
+        setIsFullscreen(true);
+        return;
+      } catch (error) {
+        setIsFullscreen(true);
+        return;
+      }
+    }
+
+    setIsFullscreen(true);
+  }
+
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
   const seconds = String(remaining % 60).padStart(2, "0");
-  const progress = 100 - (remaining / POMODORO_DURATIONS[mode]) * 100;
+  const progress = (remaining / POMODORO_DURATIONS[mode]) * 100;
   const modeLabels = {
     focus: "Deep focus",
     short: "Short break",
@@ -804,39 +864,58 @@ function PomodoroPanel() {
   };
 
   return (
-    <ToolShell view="pomodoro" eyebrow="Pomodoro" title="Run focused study sprints" description="Use focus and break modes to study with a simple Pomodoro timer.">
-      <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 text-center">
-        <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
-        <div
-          className="mx-auto mt-4 grid h-48 w-48 place-items-center rounded-full"
-          style={{ background: `conic-gradient(#f59e0b ${progress}%, #fff7ed ${progress}% 100%)` }}
-        >
-          <div className="grid h-40 w-40 place-items-center rounded-full border border-amber-100 bg-white shadow-tight">
-            <div>
-              <div className="text-5xl font-black text-ink">{minutes}:{seconds}</div>
-              <div className="mt-1 text-xs font-bold uppercase text-muted">{running ? "Running" : "Ready"}</div>
+    <div ref={pomodoroRef} className={classNames("pomodoro-stage", isFullscreen && "pomodoro-stage-expanded")}>
+      <ToolShell view="pomodoro" eyebrow="Pomodoro" title="Run focused study sprints" description="Use focus and break modes to study with a simple Pomodoro timer.">
+        <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 text-center">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
+            <button type="button" className="ghost-btn min-h-10 px-3" onClick={toggleFullscreen}>
+              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              {isFullscreen ? "Exit full screen" : "Full screen"}
+            </button>
+          </div>
+          <div
+            className={classNames("pomodoro-ring mx-auto mt-5 grid place-items-center rounded-full", isFullscreen && "pomodoro-ring-expanded")}
+            style={{
+              background: `conic-gradient(#f59e0b ${progress}%, #fff7ed ${progress}% 100%)`,
+              width: isFullscreen ? "34rem" : undefined,
+              maxWidth: isFullscreen ? "86vw" : undefined,
+              marginBlock: isFullscreen ? "7rem" : undefined,
+              transform: isFullscreen ? "scale(1.5)" : undefined
+            }}
+          >
+            <div className="pomodoro-core grid place-items-center rounded-full border border-amber-100 bg-white shadow-tight">
+              <div>
+                <div className="text-xs font-extrabold uppercase text-amber-700">{running ? "Running" : "Ready"}</div>
+                <div className="mt-2 text-5xl font-black tracking-normal text-ink sm:text-6xl">{minutes}:{seconds}</div>
+                <div className="mt-2 text-sm font-bold text-muted">{Math.round(progress)}% left</div>
+              </div>
             </div>
           </div>
+          <div className="mx-auto mt-4 flex max-w-sm items-center justify-between text-xs font-bold uppercase text-muted">
+            <span>0</span>
+            <span>{mode === "focus" ? "25 min" : mode === "short" ? "5 min" : "15 min"}</span>
+          </div>
         </div>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {["focus", "short", "long"].map(item => (
-          <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-11 rounded-lg border border-line bg-white font-bold capitalize transition hover:border-amber-300 hover:bg-amber-50", mode === item && "border-amber-300 bg-amber-50 text-amber-800")}>
-            {item === "short" ? "Break" : item === "long" ? "Long" : "Focus"}
+        <div className="grid grid-cols-3 gap-2">
+          {["focus", "short", "long"].map(item => (
+            <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-11 rounded-lg border border-line bg-white font-bold capitalize transition hover:border-amber-300 hover:bg-amber-50", mode === item && "border-amber-300 bg-amber-50 text-amber-800")}>
+              {item === "short" ? "Break" : item === "long" ? "Long" : "Focus"}
+            </button>
+          ))}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button type="button" className="primary-btn" onClick={toggleTimer}>
+            {running ? <Pause size={18} /> : <Play size={18} />}
+            {running ? "Pause" : "Start"}
           </button>
-        ))}
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <button className="primary-btn" onClick={toggleTimer}>
-          {running ? <Pause size={18} /> : <Play size={18} />}
-          {running ? "Pause" : "Start"}
-        </button>
-        <button className="ghost-btn" onClick={() => changeMode(mode)}>
-          <RotateCcw size={17} />
-          Reset
-        </button>
-      </div>
-    </ToolShell>
+          <button type="button" className="ghost-btn" onClick={() => changeMode(mode)}>
+            <RotateCcw size={17} />
+            Reset
+          </button>
+        </div>
+      </ToolShell>
+    </div>
   );
 }
 

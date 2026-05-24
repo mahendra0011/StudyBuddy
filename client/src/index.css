@@ -170,6 +170,73 @@ input[type="range"] {
   accent-color: #4f46e5;
 }
 
+.pomodoro-stage {
+  border-radius: 0.75rem;
+}
+
+.pomodoro-ring {
+  width: min(70vw, 17rem);
+  aspect-ratio: 1;
+  padding: 1.1rem;
+  box-shadow: 0 22px 60px rgba(245, 158, 11, 0.18);
+  transform: scale(1);
+  transition: width 220ms ease, transform 220ms ease, box-shadow 220ms ease;
+}
+
+.pomodoro-core {
+  width: 100%;
+  height: 100%;
+}
+
+.pomodoro-stage:fullscreen,
+.pomodoro-stage-expanded {
+  min-height: 100vh;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.18), transparent 36%),
+    linear-gradient(135deg, #fff7ed, #ffffff 42%, #f8fafc);
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+
+.pomodoro-stage-expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+
+.pomodoro-stage:fullscreen > section,
+.pomodoro-stage-expanded > section {
+  margin: auto;
+  max-width: 1180px;
+  min-height: min(760px, calc(100vh - 5rem));
+}
+
+.pomodoro-stage:fullscreen .pomodoro-ring,
+.pomodoro-stage-expanded .pomodoro-ring {
+  width: 34rem;
+  max-width: 86vw;
+  margin-block: 7rem;
+  transform: scale(1.5);
+  box-shadow: 0 30px 90px rgba(245, 158, 11, 0.24);
+}
+
+.pomodoro-ring-expanded {
+  width: 34rem !important;
+  max-width: 86vw !important;
+  margin-block: 7rem !important;
+  transform: scale(1.5) !important;
+  box-shadow: 0 30px 90px rgba(245, 158, 11, 0.24) !important;
+}
+
+@media (max-width: 640px) {
+  .pomodoro-stage:fullscreen .pomodoro-ring,
+  .pomodoro-stage-expanded .pomodoro-ring,
+  .pomodoro-ring-expanded {
+    margin-block: 3rem;
+    transform: scale(1.16) !important;
+  }
+}
+
 .thinking-dot {
   animation: typingDot 1.15s ease-in-out infinite;
 }
