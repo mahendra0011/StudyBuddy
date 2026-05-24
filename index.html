@@ -21,7 +21,12 @@
             </a>
 
             <nav class="nav-links" aria-label="Primary navigation">
-                <a class="active" href="index.html">Home</a>
+                <button class="active" type="button" data-home-view-target="home">Home</button>
+                <button type="button" data-home-view-target="pdf">PDF</button>
+                <button type="button" data-home-view-target="video">Video</button>
+                <button type="button" data-home-view-target="pomodoro">Pomodoro</button>
+                <button type="button" data-home-view-target="tasks">Tasks</button>
+                <button type="button" data-home-view-target="music">Music</button>
                 <a href="lectures.html">Lectures</a>
             </nav>
 
@@ -37,7 +42,7 @@
         </header>
 
         <main>
-            <section class="home-hero">
+            <section class="home-hero" data-home-view="home">
                 <div class="hero-center">
                     <span class="eyebrow">
                         <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
@@ -91,7 +96,7 @@
                 </div>
             </section>
 
-            <section class="category-section" aria-label="Notes categories">
+            <section class="category-section" data-home-view="home" aria-label="Notes categories">
                 <div class="section-heading">
                     <div>
                         <span class="eyebrow">
@@ -144,7 +149,7 @@
                 </div>
             </section>
 
-            <section class="tool-feature-section pdf-feature" aria-label="PDF summarizer">
+            <section class="tool-feature-section pdf-feature" data-home-view="pdf" aria-label="PDF summarizer">
                 <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
@@ -175,7 +180,7 @@
                 </article>
             </section>
 
-            <section class="tool-feature-section video-feature" aria-label="Video lecture summarizer">
+            <section class="tool-feature-section video-feature" data-home-view="video" aria-label="Video lecture summarizer">
                 <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
@@ -204,7 +209,7 @@
                 </article>
             </section>
 
-            <section class="tool-feature-section pomodoro-feature" aria-label="Pomodoro timer">
+            <section class="tool-feature-section pomodoro-feature" data-home-view="pomodoro" aria-label="Pomodoro timer">
                 <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
@@ -243,7 +248,7 @@
                 </article>
             </section>
 
-            <section class="tool-feature-section tasks-feature" aria-label="Study tasks and goals">
+            <section class="tool-feature-section tasks-feature" data-home-view="tasks" aria-label="Study tasks and goals">
                 <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
@@ -274,7 +279,7 @@
                 </article>
             </section>
 
-            <section class="tool-feature-section music-feature" aria-label="Focus music">
+            <section class="tool-feature-section music-feature" data-home-view="music" aria-label="Focus music">
                 <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">

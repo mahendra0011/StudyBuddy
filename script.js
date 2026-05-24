@@ -10,6 +10,8 @@ const state = {
     userEmail: "",
     userName: "",
     authMode: "signup",
+    activeHomeView: "home",
+    resultView: "",
     customPlaylists: []
 };
 
@@ -20,6 +22,7 @@ const AUTH_ACCOUNTS_STORAGE_KEY = "notesgpt-auth-accounts";
 const LEGACY_AUTH_STORAGE_KEY = "notesgpt-user-email";
 const TASK_STORAGE_KEY = "notesgpt-study-tasks";
 const GOAL_STORAGE_KEY = "notesgpt-study-goal";
+const HOME_VIEWS = ["home", "pdf", "video", "pomodoro", "tasks", "music"];
 const POMODORO_DURATIONS = {
     focus: 25 * 60,
     short: 5 * 60,
@@ -473,16 +476,50 @@ function getHomeFormData() {
     };
 }
 
+function syncHomeResultsVisibility() {
+    const resultsSection = document.querySelector(".home-results");
+
+    if (!resultsSection) {
+        return;
+    }
+
+    const shouldShowResults = state.activeHomeView === "home" || state.resultView === state.activeHomeView;
+    resultsSection.classList.toggle("hidden", !shouldShowResults);
+}
+
+function setHomeView(view, options = {}) {
+    const nextView = HOME_VIEWS.includes(view) ? view : "home";
+    state.activeHomeView = nextView;
+
+    document.querySelectorAll("[data-home-view]").forEach(section => {
+        section.classList.toggle("hidden", section.dataset.homeView !== nextView);
+    });
+
+    document.querySelectorAll("[data-home-view-target]").forEach(button => {
+        button.classList.toggle("active", button.dataset.homeViewTarget === nextView);
+    });
+
+    syncHomeResultsVisibility();
+
+    if (options.scroll) {
+        const target = document.querySelector(`[data-home-view="${nextView}"]`) || document.querySelector("main");
+        target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+}
+
 function setResultState(type, content = "") {
     const emptyState = document.getElementById("emptyState");
     const results = document.getElementById("searchResults");
     const resultText = document.getElementById("resultText");
     const downloadButton = document.getElementById("downloadButton");
+    const resultsSection = document.querySelector(".home-results");
 
     if (!results || !resultText) {
         return;
     }
 
+    state.resultView = state.activeHomeView;
+    resultsSection?.classList.remove("hidden");
     emptyState?.classList.add("hidden");
     results.classList.remove("hidden");
     downloadButton?.setAttribute("disabled", "true");
@@ -1690,6 +1727,31 @@ function initHomeGenerator() {
     downloadButton?.addEventListener("click", downloadPDF);
 }
 
+function initHomeViewNavigation() {
+    const buttons = Array.from(document.querySelectorAll("[data-home-view-target]"));
+
+    if (!buttons.length) {
+        return;
+    }
+
+    const initialHash = window.location.hash.replace("#", "");
+    setHomeView(HOME_VIEWS.includes(initialHash) ? initialHash : "home");
+
+    buttons.forEach(button => {
+        button.addEventListener("click", () => {
+            const view = button.dataset.homeViewTarget || "home";
+            setHomeView(view, { scroll: true });
+
+            if (view === "home") {
+                history.replaceState(null, "", window.location.pathname);
+                return;
+            }
+
+            history.replaceState(null, "", `${window.location.pathname}#${view}`);
+        });
+    });
+}
+
 function initLectureFilters() {
     const search = document.getElementById("lectureSearch");
     const cards = Array.from(document.querySelectorAll("#curatedLectureGrid .lecture-card"));
@@ -1729,6 +1791,7 @@ function initLectureFilters() {
 
 document.addEventListener("DOMContentLoaded", () => {
     initAuth();
+    initHomeViewNavigation();
     initHomeGenerator();
     initStudyTools();
     initLectureFilters();
