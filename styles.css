@@ -696,6 +696,10 @@ p {
     display: none;
 }
 
+.stream-warmup {
+    color: var(--muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .writing-content::after {
         animation: none;

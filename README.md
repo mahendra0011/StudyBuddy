@@ -33,7 +33,7 @@ Create a local `.env` file or set environment variables before starting:
 
 ```text
 GEMINI_API_KEY=your_new_gemini_api_key_here
-GEMINI_MODEL=gemini-flash-lite-latest
+GEMINI_MODEL=gemini-1.5-flash-latest
 ```
 
 Start the app:
@@ -53,13 +53,13 @@ http://localhost:4173
 The app currently uses:
 
 ```text
-gemini-flash-lite-latest
+gemini-1.5-flash-latest
 ```
 
 The Gemini model is configured on the server through:
 
 ```text
-GEMINI_MODEL=gemini-flash-lite-latest
+GEMINI_MODEL=gemini-1.5-flash-latest
 ```
 
 The API key must be configured as:
@@ -81,7 +81,7 @@ Add these Render environment variables:
 
 ```text
 GEMINI_API_KEY=your_new_gemini_api_key_here
-GEMINI_MODEL=gemini-flash-lite-latest
+GEMINI_MODEL=gemini-1.5-flash-latest
 ```
 
 ## Important Security Note

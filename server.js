@@ -4,7 +4,7 @@ const path = require("path");
 const app = express();
 const PORT = process.env.PORT || 4173;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
 const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent`;
 
@@ -15,34 +15,47 @@ function getMaxOutputTokens(depth) {
     const normalizedDepth = String(depth || "").toLowerCase();
 
     if (normalizedDepth.includes("quick") || normalizedDepth.includes("short")) {
-        return 900;
+        return 550;
     }
 
     if (normalizedDepth.includes("detailed") || normalizedDepth.includes("classroom")) {
-        return 2200;
+        return 1500;
     }
 
-    return 1400;
+    return 900;
+}
+
+function getTargetLength(depth) {
+    const normalizedDepth = String(depth || "").toLowerCase();
+
+    if (normalizedDepth.includes("quick") || normalizedDepth.includes("short")) {
+        return "Target length: 120-220 words.";
+    }
+
+    if (normalizedDepth.includes("detailed") || normalizedDepth.includes("classroom")) {
+        return "Target length: 500-700 words.";
+    }
+
+    return "Target length: 280-420 words.";
 }
 
 function buildPrompt({ prompt, category, language, depth }) {
     return [
-        `Create fast, concise ${depth || "exam revision"} for a college student.`,
+        `Create very fast, concise ${depth || "exam revision"} for a college student.`,
         `Category: ${category || "General"}`,
         `Student request: ${prompt}`,
         `Language: ${language || "English"}`,
+        getTargetLength(depth),
         "",
         "Format the answer in clean Markdown.",
-        "Use short headings and tight bullet points.",
-        "Include only the most useful sections from this structure:",
-        "1. Short introduction",
-        "2. Key concepts",
-        "3. Step-by-step explanation",
-        "4. Examples or applications",
-        "5. Important exam points",
-        "6. Glossary, only if helpful",
+        "Use short headings, tight bullets, and compact examples.",
+        "Use only these sections:",
+        "1. Overview",
+        "2. Key points",
+        "3. Example",
+        "4. Exam tips",
         "",
-        "Avoid long paragraphs. Keep it clear, practical, and easy to revise."
+        "Avoid long paragraphs, filler, and repeated explanations."
     ].join("\n");
 }
 
@@ -58,8 +71,8 @@ function buildGeminiRequestBody({ prompt, category, language, depth }) {
             parts: [{ text: buildPrompt({ prompt, category, language, depth }) }]
         }],
         generationConfig: {
-            temperature: 0.35,
-            topP: 0.85,
+            temperature: 0.25,
+            topP: 0.8,
             maxOutputTokens: getMaxOutputTokens(depth)
         }
     };

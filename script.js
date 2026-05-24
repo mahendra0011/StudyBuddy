@@ -377,7 +377,7 @@ function friendlyErrorMessage(error) {
     }
 
     if (normalized.includes("not_found") || normalized.includes("not found") || normalized.includes("is not supported")) {
-        return "The selected Gemini model is not available for this API key. Use gemini-flash-lite-latest or another model listed in Google AI Studio.";
+        return "The selected Gemini model is not available for this API key. Use gemini-1.5-flash-latest or another model listed in Google AI Studio.";
     }
 
     if (normalized.includes("failed to fetch") || normalized.includes("network")) {
@@ -426,26 +426,26 @@ function wait(ms) {
 
 function getLiveTypingChunkSize(pendingLength) {
     if (pendingLength > 220) {
-        return 12;
+        return 32;
     }
 
     if (pendingLength > 80) {
-        return 7;
+        return 18;
     }
 
-    return 3;
+    return 8;
 }
 
 function getLiveTypingDelay(pendingLength) {
     if (pendingLength > 220) {
-        return 4;
+        return 2;
     }
 
     if (pendingLength > 80) {
-        return 8;
+        return 4;
     }
 
-    return 14;
+    return 7;
 }
 
 async function streamNotesToPage(formData) {
@@ -462,7 +462,7 @@ async function streamNotesToPage(formData) {
             return;
         }
 
-        setResultState("success", renderNotesShell(formData, "", "writing-content"));
+        setResultState("success", renderNotesShell(formData, '<p class="stream-warmup">Preparing your notes...</p>', "writing-content"));
         downloadButton = document.getElementById("downloadButton");
         target = document.getElementById("notesContentBody");
         downloadButton?.setAttribute("disabled", "true");
@@ -519,8 +519,8 @@ async function streamNotesToPage(formData) {
         void typePendingText();
     };
 
-    const streamedText = await streamNotes(formData, addStreamChunk);
     showNotesShell();
+    const streamedText = await streamNotes(formData, addStreamChunk);
 
     while (isTyping || pendingText) {
         await wait(24);
