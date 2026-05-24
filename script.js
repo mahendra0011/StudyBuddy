@@ -6,11 +6,14 @@ const state = {
     pomodoroTimer: null,
     pomodoroRunning: false,
     focusAudio: null,
-    tasks: []
+    tasks: [],
+    userEmail: "",
+    customPlaylists: []
 };
 
 const STREAM_STALL_TIMEOUT_MS = 9000;
 const MAX_SUMMARY_TEXT_CHARS = 28000;
+const AUTH_STORAGE_KEY = "notesgpt-user-email";
 const TASK_STORAGE_KEY = "notesgpt-study-tasks";
 const GOAL_STORAGE_KEY = "notesgpt-study-goal";
 const POMODORO_DURATIONS = {
@@ -26,6 +29,60 @@ function escapeHTML(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function storageSafeEmail(email) {
+    return String(email || "").trim().toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+}
+
+function getPlaylistStorageKey(email = state.userEmail) {
+    return `notesgpt-playlists-${storageSafeEmail(email) || "guest"}`;
+}
+
+function getYouTubeId(value = "") {
+    const input = String(value).trim();
+
+    if (/^[a-zA-Z0-9_-]{11}$/.test(input)) {
+        return input;
+    }
+
+    try {
+        const url = new URL(input);
+
+        if (url.hostname.includes("youtu.be")) {
+            return url.pathname.split("/").filter(Boolean)[0] || "";
+        }
+
+        if (url.hostname.includes("youtube.com")) {
+            const fromQuery = url.searchParams.get("v");
+            if (fromQuery) {
+                return fromQuery;
+            }
+
+            const parts = url.pathname.split("/").filter(Boolean);
+            const markers = ["embed", "shorts", "live"];
+            const marker = markers.find(item => parts.includes(item));
+
+            if (marker) {
+                return parts[parts.indexOf(marker) + 1] || "";
+            }
+        }
+    } catch (error) {
+        return "";
+    }
+
+    return "";
+}
+
+function getPlaylistThumbnail(url) {
+    const videoId = getYouTubeId(url);
+    return videoId
+        ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+        : "";
 }
 
 function formatInline(value) {
@@ -893,6 +950,283 @@ function updateFocusVolume() {
     state.focusAudio.gain.gain.value = Math.max(0.02, volume * 0.35);
 }
 
+function loadAuthState() {
+    state.userEmail = window.localStorage.getItem(AUTH_STORAGE_KEY) || "";
+}
+
+function saveAuthState(email) {
+    state.userEmail = email.trim().toLowerCase();
+    window.localStorage.setItem(AUTH_STORAGE_KEY, state.userEmail);
+    loadCustomPlaylists();
+    updateAuthUI();
+    renderCustomPlaylists();
+}
+
+function clearAuthState() {
+    state.userEmail = "";
+    state.customPlaylists = [];
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    updateAuthUI();
+    renderCustomPlaylists();
+}
+
+function openAuthModal() {
+    const modal = document.getElementById("authModal");
+    const emailInput = document.getElementById("authEmailInput");
+    const authError = document.getElementById("authError");
+
+    modal?.classList.remove("hidden");
+    authError?.classList.add("hidden");
+    updateAuthUI();
+    window.setTimeout(() => emailInput?.focus(), 50);
+}
+
+function closeAuthModal() {
+    document.getElementById("authModal")?.classList.add("hidden");
+}
+
+function updateAuthUI() {
+    const authButton = document.getElementById("authButton");
+    const authForm = document.getElementById("authForm");
+    const signOutButton = document.getElementById("signOutButton");
+    const description = document.getElementById("authDescription");
+    const title = document.getElementById("authTitle");
+    const emailInput = document.getElementById("authEmailInput");
+    const badge = document.getElementById("playlistUserBadge");
+    const playlistForm = document.getElementById("playlistForm");
+
+    if (authButton) {
+        authButton.innerHTML = state.userEmail
+            ? `<i class="fas fa-user-check" aria-hidden="true"></i><span>${escapeHTML(state.userEmail)}</span>`
+            : '<i class="fas fa-user" aria-hidden="true"></i><span>Sign in</span>';
+        authButton.setAttribute("aria-label", state.userEmail ? `Signed in as ${state.userEmail}` : "Sign in with email");
+    }
+
+    if (title) {
+        title.textContent = state.userEmail ? "Signed in" : "Sign in to NotesGPT";
+    }
+
+    if (description) {
+        description.textContent = state.userEmail
+            ? `You are signed in as ${state.userEmail}.`
+            : "Use your email to save study goals and create your own lecture playlists on this device.";
+    }
+
+    authForm?.classList.toggle("hidden", Boolean(state.userEmail));
+    signOutButton?.classList.toggle("hidden", !state.userEmail);
+
+    if (emailInput && !state.userEmail) {
+        emailInput.value = "";
+    }
+
+    if (badge) {
+        badge.textContent = state.userEmail || "Sign in required";
+    }
+
+    playlistForm?.classList.toggle("disabled", !state.userEmail);
+}
+
+function initAuth() {
+    loadAuthState();
+    loadCustomPlaylists();
+    updateAuthUI();
+
+    const authButton = document.getElementById("authButton");
+    const authCloseButton = document.getElementById("authCloseButton");
+    const authModal = document.getElementById("authModal");
+    const authForm = document.getElementById("authForm");
+    const authError = document.getElementById("authError");
+    const signOutButton = document.getElementById("signOutButton");
+
+    authButton?.addEventListener("click", openAuthModal);
+    authCloseButton?.addEventListener("click", closeAuthModal);
+    authModal?.addEventListener("click", event => {
+        if (event.target === authModal) {
+            closeAuthModal();
+        }
+    });
+
+    authForm?.addEventListener("submit", event => {
+        event.preventDefault();
+        const emailInput = document.getElementById("authEmailInput");
+        const email = emailInput?.value.trim() || "";
+
+        if (!isValidEmail(email)) {
+            authError?.classList.remove("hidden");
+            return;
+        }
+
+        authError?.classList.add("hidden");
+        saveAuthState(email);
+        closeAuthModal();
+    });
+
+    signOutButton?.addEventListener("click", () => {
+        clearAuthState();
+        closeAuthModal();
+    });
+}
+
+function loadCustomPlaylists() {
+    if (!state.userEmail) {
+        state.customPlaylists = [];
+        return;
+    }
+
+    try {
+        state.customPlaylists = JSON.parse(window.localStorage.getItem(getPlaylistStorageKey()) || "[]");
+    } catch (error) {
+        state.customPlaylists = [];
+    }
+}
+
+function saveCustomPlaylists() {
+    if (!state.userEmail) {
+        return;
+    }
+
+    window.localStorage.setItem(getPlaylistStorageKey(), JSON.stringify(state.customPlaylists));
+}
+
+function renderCustomPlaylists() {
+    const grid = document.getElementById("customPlaylistGrid");
+    const empty = document.getElementById("customPlaylistEmpty");
+
+    if (!grid || !empty) {
+        return;
+    }
+
+    if (!state.userEmail) {
+        grid.innerHTML = "";
+        empty.textContent = "Sign in with email to save your own playlists.";
+        empty.classList.remove("hidden");
+        return;
+    }
+
+    if (!state.customPlaylists.length) {
+        grid.innerHTML = "";
+        empty.textContent = "No custom playlists yet.";
+        empty.classList.remove("hidden");
+        return;
+    }
+
+    empty.classList.add("hidden");
+    grid.innerHTML = state.customPlaylists.map(playlist => {
+        const thumbnail = playlist.thumbnail || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80";
+        return `
+            <article class="lecture-card custom-playlist-card" data-playlist-id="${escapeHTML(playlist.id)}">
+                <a class="lecture-thumb" href="${escapeHTML(playlist.url)}" target="_blank" rel="noopener" aria-label="Open ${escapeHTML(playlist.title)}">
+                    <img src="${escapeHTML(thumbnail)}" alt="${escapeHTML(playlist.title)} thumbnail">
+                    <span><i class="fas fa-play"></i></span>
+                </a>
+                <div class="lecture-body">
+                    <span>${escapeHTML(playlist.categoryLabel)}</span>
+                    <h2>${escapeHTML(playlist.title)}</h2>
+                    <p>${escapeHTML(playlist.notes || "Saved personal playlist.")}</p>
+                    <div class="playlist-card-actions">
+                        <a href="${escapeHTML(playlist.url)}" target="_blank" rel="noopener">
+                            Open Playlist <i class="fas fa-arrow-up-right-from-square"></i>
+                        </a>
+                        <button type="button" title="Delete playlist">
+                            <i class="fas fa-trash" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join("");
+}
+
+function addCustomPlaylist() {
+    if (!state.userEmail) {
+        openAuthModal();
+        return;
+    }
+
+    const titleInput = document.getElementById("playlistTitleInput");
+    const urlInput = document.getElementById("playlistUrlInput");
+    const categoryInput = document.getElementById("playlistCategoryInput");
+    const notesInput = document.getElementById("playlistNotesInput");
+    const title = titleInput?.value.trim() || "";
+    const url = urlInput?.value.trim() || "";
+
+    if (!title || !url) {
+        return;
+    }
+
+    const normalizedUrl = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+    let playlistUrl = normalizedUrl;
+
+    try {
+        const parsedUrl = new URL(normalizedUrl);
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+            return;
+        }
+        playlistUrl = parsedUrl.toString();
+    } catch (error) {
+        urlInput?.focus();
+        return;
+    }
+
+    const category = categoryInput?.value || "custom";
+    const categoryLabels = {
+        programming: "Programming",
+        web: "Web",
+        dsa: "DSA",
+        cs: "CS Core",
+        custom: "Custom"
+    };
+
+    state.customPlaylists.unshift({
+        id: window.crypto?.randomUUID?.() || `${Date.now()}`,
+        title,
+        url: playlistUrl,
+        category,
+        categoryLabel: categoryLabels[category] || "Custom",
+        notes: notesInput?.value.trim() || "",
+        thumbnail: getPlaylistThumbnail(playlistUrl),
+        createdAt: new Date().toISOString()
+    });
+
+    titleInput.value = "";
+    urlInput.value = "";
+    if (notesInput) {
+        notesInput.value = "";
+    }
+
+    saveCustomPlaylists();
+    renderCustomPlaylists();
+}
+
+function initCustomPlaylists() {
+    const form = document.getElementById("playlistForm");
+    const grid = document.getElementById("customPlaylistGrid");
+
+    if (!form || !grid) {
+        return;
+    }
+
+    renderCustomPlaylists();
+
+    form.addEventListener("submit", event => {
+        event.preventDefault();
+        addCustomPlaylist();
+    });
+
+    grid.addEventListener("click", event => {
+        const button = event.target.closest("button");
+        const card = event.target.closest("[data-playlist-id]");
+
+        if (!button || !card) {
+            return;
+        }
+
+        state.customPlaylists = state.customPlaylists.filter(playlist => playlist.id !== card.dataset.playlistId);
+        saveCustomPlaylists();
+        renderCustomPlaylists();
+    });
+}
+
 function getLiveTypingChunkSize(pendingLength) {
     if (pendingLength > 220) {
         return 32;
@@ -1190,7 +1524,7 @@ function initHomeGenerator() {
 
 function initLectureFilters() {
     const search = document.getElementById("lectureSearch");
-    const cards = Array.from(document.querySelectorAll(".lecture-card"));
+    const cards = Array.from(document.querySelectorAll("#curatedLectureGrid .lecture-card"));
     const noResults = document.getElementById("noLectureResults");
     const filterButtons = Array.from(document.querySelectorAll("[data-filter]"));
 
@@ -1226,7 +1560,9 @@ function initLectureFilters() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    initAuth();
     initHomeGenerator();
     initStudyTools();
     initLectureFilters();
+    initCustomPlaylists();
 });

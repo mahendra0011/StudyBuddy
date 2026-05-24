@@ -28,6 +28,11 @@
                 <i class="fas fa-file-pen" aria-hidden="true"></i>
                 Notes
             </a>
+
+            <button id="authButton" class="auth-button" type="button">
+                <i class="fas fa-user" aria-hidden="true"></i>
+                Sign in
+            </button>
         </header>
 
         <main>
@@ -55,7 +60,40 @@
                 <button type="button" data-filter="cs">CS Core</button>
             </div>
 
-            <section class="lecture-grid" aria-label="Lecture playlists">
+            <section class="custom-playlist-section" aria-label="Your playlists">
+                <div class="section-heading">
+                    <div>
+                        <span class="eyebrow">
+                            <i class="fas fa-bookmark" aria-hidden="true"></i>
+                            Your playlists
+                        </span>
+                        <h2>Create your own playlist</h2>
+                    </div>
+                    <span id="playlistUserBadge" class="user-badge">Sign in required</span>
+                </div>
+
+                <form id="playlistForm" class="playlist-form" novalidate>
+                    <input id="playlistTitleInput" class="tool-input" type="text" placeholder="Playlist title" required>
+                    <input id="playlistUrlInput" class="tool-input" type="url" placeholder="YouTube playlist or video link" required>
+                    <select id="playlistCategoryInput" class="tool-input">
+                        <option value="programming">Programming</option>
+                        <option value="web">Web</option>
+                        <option value="dsa">DSA</option>
+                        <option value="cs">CS Core</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                    <input id="playlistNotesInput" class="tool-input" type="text" placeholder="Short note or topic">
+                    <button class="secondary-action" type="submit">
+                        <i class="fas fa-plus" aria-hidden="true"></i>
+                        Add Playlist
+                    </button>
+                </form>
+
+                <div id="customPlaylistGrid" class="lecture-grid custom-playlist-grid"></div>
+                <p id="customPlaylistEmpty" class="no-results">Sign in with email to save your own playlists.</p>
+            </section>
+
+            <section id="curatedLectureGrid" class="lecture-grid" aria-label="Lecture playlists">
                 <article class="lecture-card" data-category="programming" data-title="java programming codewithharry">
                     <a class="lecture-thumb" href="https://www.youtube.com/playlist?list=PLu0W_9lII9agwh1XjRt242xIpHhPT2llg" target="_blank" rel="noopener" aria-label="Open Java Programming playlist">
                         <img src="https://img.youtube.com/vi/ntLJmHOJ0ME/hqdefault.jpg" alt="Java programming lecture thumbnail">
@@ -149,6 +187,32 @@
 
             <p id="noLectureResults" class="no-results hidden">No lectures matched your search.</p>
         </main>
+    </div>
+
+    <div id="authModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="auth-panel">
+            <button id="authCloseButton" class="modal-close" type="button" title="Close">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+            <span class="eyebrow">
+                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                Email access
+            </span>
+            <h2 id="authTitle">Sign in to NotesGPT</h2>
+            <p id="authDescription">Use your email to save study goals and create your own lecture playlists on this device.</p>
+            <form id="authForm" class="auth-form">
+                <input id="authEmailInput" type="email" placeholder="you@example.com" autocomplete="email" required>
+                <p id="authError" class="form-error hidden">Please enter a valid email address.</p>
+                <button class="secondary-action" type="submit">
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    Continue
+                </button>
+            </form>
+            <button id="signOutButton" class="ghost-action hidden" type="button">
+                <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                Sign out
+            </button>
+        </div>
     </div>
 
     <script src="script.js"></script>

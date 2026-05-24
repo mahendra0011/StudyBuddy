@@ -29,6 +29,11 @@
                 <i class="fas fa-play" aria-hidden="true"></i>
                 Lectures
             </a>
+
+            <button id="authButton" class="auth-button" type="button">
+                <i class="fas fa-user" aria-hidden="true"></i>
+                Sign in
+            </button>
         </header>
 
         <main>
@@ -280,6 +285,32 @@
                 </div>
             </section>
         </main>
+    </div>
+
+    <div id="authModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <div class="auth-panel">
+            <button id="authCloseButton" class="modal-close" type="button" title="Close">
+                <i class="fas fa-xmark" aria-hidden="true"></i>
+            </button>
+            <span class="eyebrow">
+                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                Email access
+            </span>
+            <h2 id="authTitle">Sign in to NotesGPT</h2>
+            <p id="authDescription">Use your email to save study goals and create your own lecture playlists on this device.</p>
+            <form id="authForm" class="auth-form">
+                <input id="authEmailInput" type="email" placeholder="you@example.com" autocomplete="email" required>
+                <p id="authError" class="form-error hidden">Please enter a valid email address.</p>
+                <button class="secondary-action" type="submit">
+                    <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                    Continue
+                </button>
+            </form>
+            <button id="signOutButton" class="ghost-action hidden" type="button">
+                <i class="fas fa-right-from-bracket" aria-hidden="true"></i>
+                Sign out
+            </button>
+        </div>
     </div>
 
     <script src="script.js"></script>
