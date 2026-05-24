@@ -5,11 +5,20 @@ const app = express();
 const PORT = process.env.PORT || 4173;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash-latest";
-const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const GEMINI_STREAM_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent`;
+const GEMINI_MODEL_FALLBACKS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-001"];
+const GEMINI_REQUEST_TIMEOUT_MS = 30000;
+const GEMINI_STREAM_IDLE_TIMEOUT_MS = 15000;
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(__dirname));
+
+function getGeminiModelCandidates() {
+    return Array.from(new Set([GEMINI_MODEL, ...GEMINI_MODEL_FALLBACKS].filter(Boolean)));
+}
+
+function getGeminiUrl(model, method) {
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`;
+}
 
 function getMaxOutputTokens(depth) {
     const normalizedDepth = String(depth || "").toLowerCase();
@@ -65,6 +74,16 @@ function normalizeGeminiError(errorData, fallbackStatus) {
     return { status, message };
 }
 
+function shouldTryNextModel(response, errorData) {
+    const status = (errorData?.error?.status || "").toLowerCase();
+    const message = (errorData?.error?.message || "").toLowerCase();
+
+    return response.status === 404
+        || status === "not_found"
+        || message.includes("not found")
+        || message.includes("not supported");
+}
+
 function buildGeminiRequestBody({ prompt, category, language, depth }) {
     return {
         contents: [{
@@ -111,7 +130,7 @@ async function streamGeminiText(response, onText) {
     let buffer = "";
 
     while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readStreamChunk(reader);
 
         if (value) {
             buffer += decoder.decode(value, { stream: !done });
@@ -141,9 +160,41 @@ async function streamGeminiText(response, onText) {
     }
 }
 
+function readStreamChunk(reader) {
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error("Gemini stream timed out before sending more text."));
+        }, GEMINI_STREAM_IDLE_TIMEOUT_MS);
+
+        reader.read()
+            .then(result => {
+                clearTimeout(timeout);
+                resolve(result);
+            })
+            .catch(error => {
+                clearTimeout(timeout);
+                reject(error);
+            });
+    });
+}
+
 function writeSse(res, event, data) {
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
+
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 app.post("/api/generate", async (req, res) => {
@@ -164,31 +215,44 @@ app.post("/api/generate", async (req, res) => {
     }
 
     try {
-        const response = await fetch(`${GEMINI_GENERATE_URL}?key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(buildGeminiRequestBody({ prompt, category, language, depth }))
-        });
+        let lastError = null;
 
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            const normalizedError = normalizeGeminiError(data, response.status);
-            return res.status(response.status).json(normalizedError);
-        }
-
-        const text = extractTextFromGeminiData(data).trim();
-
-        if (!text) {
-            return res.status(502).json({
-                status: "EMPTY_RESPONSE",
-                message: "Gemini returned an empty response."
+        for (const model of getGeminiModelCandidates()) {
+            const response = await fetchWithTimeout(`${getGeminiUrl(model, "generateContent")}?key=${GEMINI_API_KEY}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(buildGeminiRequestBody({ prompt, category, language, depth }))
             });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                lastError = { response, data };
+
+                if (shouldTryNextModel(response, data)) {
+                    continue;
+                }
+
+                const normalizedError = normalizeGeminiError(data, response.status);
+                return res.status(response.status).json(normalizedError);
+            }
+
+            const text = extractTextFromGeminiData(data).trim();
+
+            if (!text) {
+                return res.status(502).json({
+                    status: "EMPTY_RESPONSE",
+                    message: "Gemini returned an empty response."
+                });
+            }
+
+            return res.json({ text, model });
         }
 
-        return res.json({ text });
+        const normalizedError = normalizeGeminiError(lastError?.data, lastError?.response?.status || 502);
+        return res.status(lastError?.response?.status || 502).json(normalizedError);
     } catch (error) {
         return res.status(502).json({
             status: "NETWORK_ERROR",
@@ -214,34 +278,48 @@ app.post("/api/generate/stream", async (req, res) => {
         });
     }
 
-    const controller = new AbortController();
     let completed = false;
 
-    req.on("close", () => {
-        if (!completed) {
-            controller.abort();
-        }
-    });
-
     try {
-        const response = await fetch(`${GEMINI_STREAM_URL}?alt=sse&key=${GEMINI_API_KEY}`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(buildGeminiRequestBody({ prompt, category, language, depth })),
-            signal: controller.signal
-        });
+        let streamResponse = null;
+        let streamModel = null;
+        let lastError = null;
 
-        const contentType = response.headers.get("content-type") || "";
+        for (const model of getGeminiModelCandidates()) {
+            const response = await fetchWithTimeout(`${getGeminiUrl(model, "streamGenerateContent")}?alt=sse&key=${GEMINI_API_KEY}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(buildGeminiRequestBody({ prompt, category, language, depth }))
+            });
 
-        if (!response.ok) {
-            const data = contentType.includes("application/json")
-                ? await response.json().catch(() => ({}))
-                : {};
-            const normalizedError = normalizeGeminiError(data, response.status);
+            const contentType = response.headers.get("content-type") || "";
+
+            if (!response.ok) {
+                const data = contentType.includes("application/json")
+                    ? await response.json().catch(() => ({}))
+                    : {};
+                lastError = { response, data };
+
+                if (shouldTryNextModel(response, data)) {
+                    continue;
+                }
+
+                const normalizedError = normalizeGeminiError(data, response.status);
+                completed = true;
+                return res.status(response.status).json(normalizedError);
+            }
+
+            streamResponse = response;
+            streamModel = model;
+            break;
+        }
+
+        if (!streamResponse) {
+            const normalizedError = normalizeGeminiError(lastError?.data, lastError?.response?.status || 502);
             completed = true;
-            return res.status(response.status).json(normalizedError);
+            return res.status(lastError?.response?.status || 502).json(normalizedError);
         }
 
         res.writeHead(200, {
@@ -254,13 +332,13 @@ app.post("/api/generate/stream", async (req, res) => {
 
         let sentText = false;
 
-        await streamGeminiText(response, text => {
+        await streamGeminiText(streamResponse, text => {
             sentText = true;
             writeSse(res, "chunk", text);
         });
 
         if (sentText) {
-            writeSse(res, "done", {});
+            writeSse(res, "done", { model: streamModel });
         } else {
             writeSse(res, "error", {
                 status: "EMPTY_RESPONSE",

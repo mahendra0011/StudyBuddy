@@ -3,6 +3,8 @@ const state = {
     activePrompt: ""
 };
 
+const STREAM_STALL_TIMEOUT_MS = 9000;
+
 function escapeHTML(value) {
     return String(value)
         .replace(/&/g, "&amp;")
@@ -193,22 +195,58 @@ function parseNotesStreamEvent(rawEvent) {
 }
 
 async function streamNotes(formData, onChunk) {
-    const response = await fetch("/api/generate/stream", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formData)
-    });
+    const controller = new AbortController();
+    let receivedChunk = false;
+    let didFallback = false;
+    const stallTimeout = window.setTimeout(() => {
+        if (!receivedChunk) {
+            controller.abort();
+        }
+    }, STREAM_STALL_TIMEOUT_MS);
+
+    const runFallback = async () => {
+        didFallback = true;
+        const text = await generateNotes(formData);
+        onChunk(text);
+        return text;
+    };
+
+    let response;
+
+    try {
+        response = await fetch("/api/generate/stream", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(formData),
+            signal: controller.signal
+        });
+    } catch (error) {
+        window.clearTimeout(stallTimeout);
+
+        if (error.name === "AbortError" && !receivedChunk) {
+            return runFallback();
+        }
+
+        throw error;
+    }
 
     if (!response.ok) {
+        window.clearTimeout(stallTimeout);
         const errorData = await response.json().catch(() => ({}));
         const status = errorData.status || errorData.error?.status;
         const message = errorData.message || errorData.error?.message || `Request failed with status ${response.status}`;
+
+        if (response.status >= 500 && status !== "MISSING_API_KEY") {
+            return runFallback();
+        }
+
         throw new Error(status ? `${status}: ${message}` : message);
     }
 
     if (!response.body) {
+        window.clearTimeout(stallTimeout);
         const text = await generateNotes(formData);
         onChunk(text);
         return text;
@@ -231,6 +269,8 @@ async function streamNotes(formData, onChunk) {
             const text = typeof parsed.data === "string" ? parsed.data : parsed.data?.text || "";
 
             if (text) {
+                receivedChunk = true;
+                window.clearTimeout(stallTimeout);
                 fullText += text;
                 onChunk(text);
             }
@@ -245,31 +285,48 @@ async function streamNotes(formData, onChunk) {
         return parsed.eventName === "done";
     };
 
-    while (true) {
-        const { done, value } = await reader.read();
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
 
-        if (value) {
-            buffer += decoder.decode(value, { stream: !done });
-            const events = buffer.split(/\r?\n\r?\n/);
-            buffer = events.pop() || "";
+            if (value) {
+                buffer += decoder.decode(value, { stream: !done });
+                const events = buffer.split(/\r?\n\r?\n/);
+                buffer = events.pop() || "";
 
-            for (const event of events) {
-                if (handleEvent(event)) {
-                    await reader.cancel().catch(() => {});
-                    return fullText;
-                }
+                for (const event of events) {
+                    if (handleEvent(event)) {
+                        window.clearTimeout(stallTimeout);
+                        await reader.cancel().catch(() => {});
+                        return fullText;
+                    }
 
-                if (streamError) {
-                    throw streamError;
+                    if (streamError) {
+                        if (!receivedChunk) {
+                            window.clearTimeout(stallTimeout);
+                            return runFallback();
+                        }
+
+                        throw streamError;
+                    }
                 }
             }
+
+            if (done) {
+                break;
+            }
+        }
+    } catch (error) {
+        window.clearTimeout(stallTimeout);
+
+        if (error.name === "AbortError" && !receivedChunk) {
+            return runFallback();
         }
 
-        if (done) {
-            break;
-        }
+        throw error;
     }
 
+    window.clearTimeout(stallTimeout);
     buffer += decoder.decode();
 
     if (buffer.trim()) {
@@ -277,7 +334,16 @@ async function streamNotes(formData, onChunk) {
     }
 
     if (streamError) {
+        if (!receivedChunk) {
+            window.clearTimeout(stallTimeout);
+            return runFallback();
+        }
+
         throw streamError;
+    }
+
+    if (!fullText.trim() && !didFallback) {
+        return runFallback();
     }
 
     return fullText;
