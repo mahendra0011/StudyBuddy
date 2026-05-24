@@ -144,133 +144,170 @@
                 </div>
             </section>
 
-            <section class="tools-section" aria-label="Summary tools">
-                <div class="section-heading">
+            <section class="tool-feature-section pdf-feature" aria-label="PDF summarizer">
+                <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
-                            <i class="fas fa-bolt" aria-hidden="true"></i>
-                            AI summary tools
+                            <i class="fas fa-file-pdf" aria-hidden="true"></i>
+                            PDF summary
                         </span>
-                        <h2>Summarize PDFs and lectures</h2>
+                        <h2>Summarize study PDFs</h2>
+                        <p>Upload notes, chapters, or handouts and turn them into structured revision points.</p>
                     </div>
                 </div>
 
-                <div class="tool-grid">
-                    <article class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-icon"><i class="fas fa-file-pdf" aria-hidden="true"></i></span>
-                            <div>
-                                <span>PDF summary</span>
-                                <h3>Upload study PDF</h3>
-                            </div>
+                <article class="tool-card standalone-tool-card">
+                    <div class="tool-card-header">
+                        <span class="tool-icon"><i class="fas fa-file-pdf" aria-hidden="true"></i></span>
+                        <div>
+                            <span>Upload document</span>
+                            <h3>PDF to notes</h3>
                         </div>
-                        <label class="file-control">
-                            <input id="pdfInput" type="file" accept="application/pdf">
-                            <span id="pdfFileName">Choose a PDF file</span>
-                        </label>
-                        <button id="summarizePdfButton" class="secondary-action" type="button">
-                            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-                            Summarize PDF
-                        </button>
-                    </article>
-
-                    <article class="tool-card">
-                        <div class="tool-card-header">
-                            <span class="tool-icon"><i class="fab fa-youtube" aria-hidden="true"></i></span>
-                            <div>
-                                <span>YouTube lecture</span>
-                                <h3>Generate lecture notes</h3>
-                            </div>
-                        </div>
-                        <input id="youtubeUrlInput" class="tool-input" type="url" placeholder="Paste YouTube lecture link">
-                        <textarea id="youtubeNotesInput" class="tool-textarea" rows="4" placeholder="Paste transcript or timestamps (optional)"></textarea>
-                        <button id="summarizeYoutubeButton" class="secondary-action" type="button">
-                            <i class="fas fa-list-check" aria-hidden="true"></i>
-                            Summarize Lecture
-                        </button>
-                    </article>
-                </div>
+                    </div>
+                    <label class="file-control">
+                        <input id="pdfInput" type="file" accept="application/pdf">
+                        <span id="pdfFileName">Choose a PDF file</span>
+                    </label>
+                    <button id="summarizePdfButton" class="secondary-action" type="button">
+                        <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+                        Summarize PDF
+                    </button>
+                </article>
             </section>
 
-            <section class="tools-section productivity-section" aria-label="Productivity tools">
-                <div class="section-heading">
+            <section class="tool-feature-section video-feature" aria-label="Video lecture summarizer">
+                <div class="section-heading tool-feature-copy">
                     <div>
                         <span class="eyebrow">
-                            <i class="fas fa-clock" aria-hidden="true"></i>
-                            Productivity
+                            <i class="fab fa-youtube" aria-hidden="true"></i>
+                            Video summary
                         </span>
-                        <h2>Plan and focus your study session</h2>
+                        <h2>Summarize YouTube lectures</h2>
+                        <p>Paste a lecture link and optional transcript or timestamps to generate clean study notes.</p>
                     </div>
                 </div>
 
-                <div class="productivity-grid">
-                    <article class="tool-card pomodoro-card">
-                        <div class="tool-card-header">
-                            <span class="tool-icon"><i class="fas fa-hourglass-half" aria-hidden="true"></i></span>
-                            <div>
-                                <span>Pomodoro timer</span>
-                                <h3>Focus sprint</h3>
-                            </div>
+                <article class="tool-card standalone-tool-card">
+                    <div class="tool-card-header">
+                        <span class="tool-icon"><i class="fab fa-youtube" aria-hidden="true"></i></span>
+                        <div>
+                            <span>YouTube lecture</span>
+                            <h3>Video to notes</h3>
                         </div>
-                        <div id="pomodoroTime" class="pomodoro-time">25:00</div>
-                        <div class="mode-buttons" aria-label="Pomodoro modes">
-                            <button class="active" type="button" data-pomodoro-mode="focus">Focus</button>
-                            <button type="button" data-pomodoro-mode="short">Break</button>
-                            <button type="button" data-pomodoro-mode="long">Long</button>
-                        </div>
-                        <div class="tool-actions">
-                            <button id="pomodoroStartButton" class="secondary-action" type="button">
-                                <i class="fas fa-play" aria-hidden="true"></i>
-                                Start
-                            </button>
-                            <button id="pomodoroResetButton" class="ghost-action" type="button">
-                                <i class="fas fa-rotate-right" aria-hidden="true"></i>
-                                Reset
-                            </button>
-                        </div>
-                    </article>
+                    </div>
+                    <input id="youtubeUrlInput" class="tool-input" type="url" placeholder="Paste YouTube lecture link">
+                    <textarea id="youtubeNotesInput" class="tool-textarea" rows="4" placeholder="Paste transcript or timestamps (optional)"></textarea>
+                    <button id="summarizeYoutubeButton" class="secondary-action" type="button">
+                        <i class="fas fa-list-check" aria-hidden="true"></i>
+                        Summarize Lecture
+                    </button>
+                </article>
+            </section>
 
-                    <article class="tool-card planner-card">
-                        <div class="tool-card-header">
-                            <span class="tool-icon"><i class="fas fa-clipboard-check" aria-hidden="true"></i></span>
-                            <div>
-                                <span>Study planner</span>
-                                <h3>Goals and tasks</h3>
-                            </div>
-                        </div>
-                        <input id="studyGoalInput" class="tool-input" type="text" placeholder="Today's study goal">
-                        <div class="task-entry">
-                            <input id="studyTaskInput" class="tool-input" type="text" placeholder="Add task">
-                            <button id="addTaskButton" class="icon-action" type="button" title="Add task">
-                                <i class="fas fa-plus" aria-hidden="true"></i>
-                            </button>
-                        </div>
-                        <ul id="taskList" class="task-list"></ul>
-                    </article>
-
-                    <article class="tool-card focus-card">
-                        <div class="tool-card-header">
-                            <span class="tool-icon"><i class="fas fa-headphones" aria-hidden="true"></i></span>
-                            <div>
-                                <span>Focus music</span>
-                                <h3>Ambient sound</h3>
-                            </div>
-                        </div>
-                        <select id="focusSoundSelect" class="tool-input">
-                            <option value="rain">Soft rain</option>
-                            <option value="deep">Deep focus</option>
-                            <option value="white">White noise</option>
-                        </select>
-                        <label class="range-control">
-                            <span>Volume</span>
-                            <input id="focusVolumeInput" type="range" min="0" max="100" value="35">
-                        </label>
-                        <button id="focusMusicButton" class="secondary-action" type="button">
-                            <i class="fas fa-play" aria-hidden="true"></i>
-                            Play Focus
-                        </button>
-                    </article>
+            <section class="tool-feature-section pomodoro-feature" aria-label="Pomodoro timer">
+                <div class="section-heading tool-feature-copy">
+                    <div>
+                        <span class="eyebrow">
+                            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+                            Pomodoro
+                        </span>
+                        <h2>Run focused study sprints</h2>
+                        <p>Use focus and break modes to study with a simple Pomodoro timer.</p>
+                    </div>
                 </div>
+
+                <article class="tool-card standalone-tool-card pomodoro-card">
+                    <div class="tool-card-header">
+                        <span class="tool-icon"><i class="fas fa-clock" aria-hidden="true"></i></span>
+                        <div>
+                            <span>Timer</span>
+                            <h3>Focus sprint</h3>
+                        </div>
+                    </div>
+                    <div id="pomodoroTime" class="pomodoro-time">25:00</div>
+                    <div class="mode-buttons" aria-label="Pomodoro modes">
+                        <button class="active" type="button" data-pomodoro-mode="focus">Focus</button>
+                        <button type="button" data-pomodoro-mode="short">Break</button>
+                        <button type="button" data-pomodoro-mode="long">Long</button>
+                    </div>
+                    <div class="tool-actions">
+                        <button id="pomodoroStartButton" class="secondary-action" type="button">
+                            <i class="fas fa-play" aria-hidden="true"></i>
+                            Start
+                        </button>
+                        <button id="pomodoroResetButton" class="ghost-action" type="button">
+                            <i class="fas fa-rotate-right" aria-hidden="true"></i>
+                            Reset
+                        </button>
+                    </div>
+                </article>
+            </section>
+
+            <section class="tool-feature-section tasks-feature" aria-label="Study tasks and goals">
+                <div class="section-heading tool-feature-copy">
+                    <div>
+                        <span class="eyebrow">
+                            <i class="fas fa-clipboard-check" aria-hidden="true"></i>
+                            Tasks
+                        </span>
+                        <h2>Plan goals and tasks</h2>
+                        <p>Set today&apos;s goal, add study tasks, and mark them complete as you work.</p>
+                    </div>
+                </div>
+
+                <article class="tool-card standalone-tool-card planner-card">
+                    <div class="tool-card-header">
+                        <span class="tool-icon"><i class="fas fa-list-check" aria-hidden="true"></i></span>
+                        <div>
+                            <span>Study planner</span>
+                            <h3>Goals and tasks</h3>
+                        </div>
+                    </div>
+                    <input id="studyGoalInput" class="tool-input" type="text" placeholder="Today's study goal">
+                    <div class="task-entry">
+                        <input id="studyTaskInput" class="tool-input" type="text" placeholder="Add task">
+                        <button id="addTaskButton" class="icon-action" type="button" title="Add task">
+                            <i class="fas fa-plus" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <ul id="taskList" class="task-list"></ul>
+                </article>
+            </section>
+
+            <section class="tool-feature-section music-feature" aria-label="Focus music">
+                <div class="section-heading tool-feature-copy">
+                    <div>
+                        <span class="eyebrow">
+                            <i class="fas fa-headphones" aria-hidden="true"></i>
+                            Focus music
+                        </span>
+                        <h2>Play ambient study sound</h2>
+                        <p>Choose a sound profile and keep it low while you read, revise, or code.</p>
+                    </div>
+                </div>
+
+                <article class="tool-card standalone-tool-card focus-card">
+                    <div class="tool-card-header">
+                        <span class="tool-icon"><i class="fas fa-volume-high" aria-hidden="true"></i></span>
+                        <div>
+                            <span>Ambient sound</span>
+                            <h3>Focus music</h3>
+                        </div>
+                    </div>
+                    <select id="focusSoundSelect" class="tool-input">
+                        <option value="rain">Soft rain</option>
+                        <option value="deep">Deep focus</option>
+                        <option value="white">White noise</option>
+                    </select>
+                    <label class="range-control">
+                        <span>Volume</span>
+                        <input id="focusVolumeInput" type="range" min="0" max="100" value="35">
+                    </label>
+                    <button id="focusMusicButton" class="secondary-action" type="button">
+                        <i class="fas fa-play" aria-hidden="true"></i>
+                        Play Focus
+                    </button>
+                </article>
             </section>
 
             <section class="home-results" aria-live="polite">

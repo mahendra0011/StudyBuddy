@@ -382,6 +382,7 @@ p {
 
 .category-section,
 .tools-section,
+.tool-feature-section,
 .home-results,
 .library-header {
     min-width: 0;
@@ -396,9 +397,34 @@ p {
     padding: 24px;
 }
 
-.tools-section {
+.tools-section,
+.tool-feature-section {
     margin-top: 18px;
     padding: 24px;
+}
+
+.tool-feature-section {
+    display: grid;
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    gap: 22px;
+    align-items: stretch;
+}
+
+.tool-feature-copy {
+    align-items: flex-start;
+}
+
+.tool-feature-copy p {
+    max-width: 430px;
+    margin-top: 10px;
+    color: var(--muted);
+    line-height: 1.65;
+}
+
+.standalone-tool-card {
+    min-height: 100%;
+    background: var(--surface-soft);
+    box-shadow: none;
 }
 
 .section-heading {
@@ -1492,6 +1518,7 @@ p {
 
     .prompt-actions,
     .tool-grid,
+    .tool-feature-section,
     .productivity-grid,
     .library-header {
         grid-template-columns: 1fr;
@@ -1585,6 +1612,7 @@ p {
 
     .category-section,
     .tools-section,
+    .tool-feature-section,
     .home-results,
     .custom-playlist-section,
     .library-header {
