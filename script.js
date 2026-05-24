@@ -8,12 +8,16 @@ const state = {
     focusAudio: null,
     tasks: [],
     userEmail: "",
+    userName: "",
+    authMode: "signup",
     customPlaylists: []
 };
 
 const STREAM_STALL_TIMEOUT_MS = 9000;
 const MAX_SUMMARY_TEXT_CHARS = 28000;
-const AUTH_STORAGE_KEY = "notesgpt-user-email";
+const AUTH_STORAGE_KEY = "notesgpt-auth-session";
+const AUTH_ACCOUNTS_STORAGE_KEY = "notesgpt-auth-accounts";
+const LEGACY_AUTH_STORAGE_KEY = "notesgpt-user-email";
 const TASK_STORAGE_KEY = "notesgpt-study-tasks";
 const GOAL_STORAGE_KEY = "notesgpt-study-goal";
 const POMODORO_DURATIONS = {
@@ -83,6 +87,46 @@ function getPlaylistThumbnail(url) {
     return videoId
         ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
         : "";
+}
+
+function getDisplayName(email = state.userEmail) {
+    return state.userName || String(email || "").split("@")[0] || "Student";
+}
+
+function getAuthAccounts() {
+    try {
+        return JSON.parse(window.localStorage.getItem(AUTH_ACCOUNTS_STORAGE_KEY) || "{}");
+    } catch (error) {
+        return {};
+    }
+}
+
+function saveAuthAccounts(accounts) {
+    window.localStorage.setItem(AUTH_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+}
+
+async function hashPassword(email, password) {
+    const value = `${String(email || "").trim().toLowerCase()}:${password}`;
+
+    if (window.crypto?.subtle && window.TextEncoder) {
+        const bytes = new TextEncoder().encode(value);
+        const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+        return Array.from(new Uint8Array(digest))
+            .map(byte => byte.toString(16).padStart(2, "0"))
+            .join("");
+    }
+
+    return window.btoa(unescape(encodeURIComponent(value)));
+}
+
+function setAuthError(message) {
+    const authError = document.getElementById("authError");
+    if (!authError) {
+        return;
+    }
+
+    authError.textContent = message;
+    authError.classList.remove("hidden");
 }
 
 function formatInline(value) {
@@ -951,12 +995,39 @@ function updateFocusVolume() {
 }
 
 function loadAuthState() {
-    state.userEmail = window.localStorage.getItem(AUTH_STORAGE_KEY) || "";
+    state.userEmail = "";
+    state.userName = "";
+
+    try {
+        const session = JSON.parse(window.localStorage.getItem(AUTH_STORAGE_KEY) || "null");
+        if (session?.email) {
+            state.userEmail = String(session.email).trim().toLowerCase();
+            state.userName = String(session.name || "").trim();
+            return;
+        }
+    } catch (error) {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+
+    const legacyEmail = window.localStorage.getItem(LEGACY_AUTH_STORAGE_KEY) || "";
+    if (legacyEmail) {
+        state.userEmail = legacyEmail.trim().toLowerCase();
+        state.userName = getDisplayName(state.userEmail);
+        window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+            email: state.userEmail,
+            name: state.userName
+        }));
+        window.localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+    }
 }
 
-function saveAuthState(email) {
-    state.userEmail = email.trim().toLowerCase();
-    window.localStorage.setItem(AUTH_STORAGE_KEY, state.userEmail);
+function saveAuthState(account) {
+    state.userEmail = String(account.email || "").trim().toLowerCase();
+    state.userName = String(account.name || "").trim();
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+        email: state.userEmail,
+        name: state.userName
+    }));
     loadCustomPlaylists();
     updateAuthUI();
     renderCustomPlaylists();
@@ -964,21 +1035,31 @@ function saveAuthState(email) {
 
 function clearAuthState() {
     state.userEmail = "";
+    state.userName = "";
     state.customPlaylists = [];
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     updateAuthUI();
     renderCustomPlaylists();
 }
 
+function setAuthMode(mode) {
+    state.authMode = mode === "login" ? "login" : "signup";
+    document.getElementById("authError")?.classList.add("hidden");
+    updateAuthUI();
+}
+
 function openAuthModal() {
     const modal = document.getElementById("authModal");
+    const nameInput = document.getElementById("authNameInput");
     const emailInput = document.getElementById("authEmailInput");
     const authError = document.getElementById("authError");
 
     modal?.classList.remove("hidden");
     authError?.classList.add("hidden");
     updateAuthUI();
-    window.setTimeout(() => emailInput?.focus(), 50);
+
+    const targetInput = state.authMode === "signup" ? nameInput : emailInput;
+    window.setTimeout(() => targetInput?.focus(), 50);
 }
 
 function closeAuthModal() {
@@ -991,39 +1072,131 @@ function updateAuthUI() {
     const signOutButton = document.getElementById("signOutButton");
     const description = document.getElementById("authDescription");
     const title = document.getElementById("authTitle");
+    const nameInput = document.getElementById("authNameInput");
     const emailInput = document.getElementById("authEmailInput");
+    const passwordInput = document.getElementById("authPasswordInput");
+    const submitButton = document.getElementById("authSubmitButton");
     const badge = document.getElementById("playlistUserBadge");
     const playlistForm = document.getElementById("playlistForm");
+    const authTabs = document.querySelectorAll("[data-auth-mode]");
+    const signedInName = getDisplayName();
 
     if (authButton) {
         authButton.innerHTML = state.userEmail
-            ? `<i class="fas fa-user-check" aria-hidden="true"></i><span>${escapeHTML(state.userEmail)}</span>`
+            ? `<i class="fas fa-user-check" aria-hidden="true"></i><span>${escapeHTML(signedInName)}</span>`
             : '<i class="fas fa-user" aria-hidden="true"></i><span>Sign in</span>';
-        authButton.setAttribute("aria-label", state.userEmail ? `Signed in as ${state.userEmail}` : "Sign in with email");
+        authButton.setAttribute("aria-label", state.userEmail ? `Signed in as ${signedInName}` : "Sign in or create account");
     }
 
     if (title) {
-        title.textContent = state.userEmail ? "Signed in" : "Sign in to NotesGPT";
+        title.textContent = state.userEmail
+            ? "Account active"
+            : state.authMode === "login"
+                ? "Log in to NotesGPT"
+                : "Create your account";
     }
 
     if (description) {
         description.textContent = state.userEmail
-            ? `You are signed in as ${state.userEmail}.`
-            : "Use your email to save study goals and create your own lecture playlists on this device.";
+            ? `You are signed in as ${signedInName} (${state.userEmail}).`
+            : state.authMode === "login"
+                ? "Enter your email and password to continue your study session."
+                : "Add your name, email, and password to save your playlists on this device.";
     }
+
+    authTabs.forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.authMode === state.authMode);
+    });
 
     authForm?.classList.toggle("hidden", Boolean(state.userEmail));
     signOutButton?.classList.toggle("hidden", !state.userEmail);
 
-    if (emailInput && !state.userEmail) {
-        emailInput.value = "";
+    if (nameInput) {
+        nameInput.classList.toggle("hidden", state.authMode === "login");
+        nameInput.required = state.authMode === "signup";
+    }
+
+    if (passwordInput) {
+        passwordInput.autocomplete = state.authMode === "login" ? "current-password" : "new-password";
+    }
+
+    if (submitButton) {
+        submitButton.innerHTML = state.authMode === "login"
+            ? '<i class="fas fa-arrow-right-to-bracket" aria-hidden="true"></i> Log in'
+            : '<i class="fas fa-arrow-right" aria-hidden="true"></i> Create account';
+    }
+
+    if (!state.userEmail) {
+        if (emailInput) {
+            emailInput.value = "";
+        }
+        if (passwordInput) {
+            passwordInput.value = "";
+        }
+        if (nameInput && state.authMode === "signup") {
+            nameInput.value = "";
+        }
     }
 
     if (badge) {
-        badge.textContent = state.userEmail || "Sign in required";
+        badge.textContent = state.userEmail ? signedInName : "Sign in required";
     }
 
     playlistForm?.classList.toggle("disabled", !state.userEmail);
+}
+
+async function handleAuthSubmit() {
+    const nameInput = document.getElementById("authNameInput");
+    const emailInput = document.getElementById("authEmailInput");
+    const passwordInput = document.getElementById("authPasswordInput");
+    const name = nameInput?.value.trim() || "";
+    const email = emailInput?.value.trim().toLowerCase() || "";
+    const password = passwordInput?.value || "";
+
+    if (!isValidEmail(email)) {
+        setAuthError("Please enter a valid email address.");
+        return;
+    }
+
+    if (password.length < 6) {
+        setAuthError("Password must be at least 6 characters.");
+        return;
+    }
+
+    const accounts = getAuthAccounts();
+    const passwordHash = await hashPassword(email, password);
+
+    if (state.authMode === "signup") {
+        if (name.length < 2) {
+            setAuthError("Please enter your name.");
+            return;
+        }
+
+        if (accounts[email]) {
+            setAuthError("This email already has an account. Use Log in.");
+            return;
+        }
+
+        accounts[email] = {
+            email,
+            name,
+            passwordHash,
+            createdAt: new Date().toISOString()
+        };
+        saveAuthAccounts(accounts);
+        saveAuthState(accounts[email]);
+        closeAuthModal();
+        return;
+    }
+
+    const account = accounts[email];
+    if (!account || account.passwordHash !== passwordHash) {
+        setAuthError("Email or password is incorrect.");
+        return;
+    }
+
+    saveAuthState(account);
+    closeAuthModal();
 }
 
 function initAuth() {
@@ -1035,7 +1208,6 @@ function initAuth() {
     const authCloseButton = document.getElementById("authCloseButton");
     const authModal = document.getElementById("authModal");
     const authForm = document.getElementById("authForm");
-    const authError = document.getElementById("authError");
     const signOutButton = document.getElementById("signOutButton");
 
     authButton?.addEventListener("click", openAuthModal);
@@ -1046,19 +1218,15 @@ function initAuth() {
         }
     });
 
-    authForm?.addEventListener("submit", event => {
+    document.querySelectorAll("[data-auth-mode]").forEach(button => {
+        button.addEventListener("click", () => {
+            setAuthMode(button.dataset.authMode || "signup");
+        });
+    });
+
+    authForm?.addEventListener("submit", async event => {
         event.preventDefault();
-        const emailInput = document.getElementById("authEmailInput");
-        const email = emailInput?.value.trim() || "";
-
-        if (!isValidEmail(email)) {
-            authError?.classList.remove("hidden");
-            return;
-        }
-
-        authError?.classList.add("hidden");
-        saveAuthState(email);
-        closeAuthModal();
+        await handleAuthSubmit();
     });
 
     signOutButton?.addEventListener("click", () => {

@@ -13,7 +13,7 @@ The Gemini API is called through a small Node/Express backend so the API key can
 - PDF summarizer with backend text extraction
 - YouTube lecture summarizer with server-side video metadata lookup
 - Pomodoro timer, study goals, task planner, and focus music
-- Email-based local profile for saving personal lecture playlists
+- Local account flow with name, email, and password for saving personal lecture playlists
 - Markdown-style AI output rendered as clean notes
 - PDF download for generated notes
 - Lecture page with thumbnails, filters, curated links, and user-created playlists
@@ -79,9 +79,9 @@ YouTube lecture metadata uses:
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
-## Email Profile and Playlists
+## Account Profile and Playlists
 
-The sign-in button uses a local email profile saved in the browser. Each email gets its own saved lecture playlists on that device. For real password/OTP accounts across devices, connect a backend auth provider such as Firebase Auth or Supabase Auth.
+The sign-in button uses a local browser account with name, email, and password. Each email gets its own saved lecture playlists on that device. This is a frontend-only demo flow; for real secure password/OTP accounts across devices, connect a backend auth provider such as Firebase Auth or Supabase Auth.
 
 ## Deploy on Render
 

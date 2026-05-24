@@ -196,16 +196,22 @@
             </button>
             <span class="eyebrow">
                 <i class="fas fa-shield-halved" aria-hidden="true"></i>
-                Email access
+                Account access
             </span>
-            <h2 id="authTitle">Sign in to NotesGPT</h2>
-            <p id="authDescription">Use your email to save study goals and create your own lecture playlists on this device.</p>
+            <h2 id="authTitle">Create your account</h2>
+            <p id="authDescription">Add your name, email, and password to save your playlists on this device.</p>
+            <div class="auth-tabs" role="tablist" aria-label="Account mode">
+                <button id="authSignupTab" class="active" type="button" data-auth-mode="signup">Create account</button>
+                <button id="authLoginTab" type="button" data-auth-mode="login">Log in</button>
+            </div>
             <form id="authForm" class="auth-form">
+                <input id="authNameInput" type="text" placeholder="Full name" autocomplete="name" required>
                 <input id="authEmailInput" type="email" placeholder="you@example.com" autocomplete="email" required>
-                <p id="authError" class="form-error hidden">Please enter a valid email address.</p>
-                <button class="secondary-action" type="submit">
+                <input id="authPasswordInput" type="password" placeholder="Password" autocomplete="new-password" minlength="6" required>
+                <p id="authError" class="form-error hidden">Please complete all fields.</p>
+                <button id="authSubmitButton" class="secondary-action" type="submit">
                     <i class="fas fa-arrow-right" aria-hidden="true"></i>
-                    Continue
+                    Create account
                 </button>
             </form>
             <button id="signOutButton" class="ghost-action hidden" type="button">
