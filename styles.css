@@ -36,6 +36,40 @@ body {
     overflow-x: hidden;
 }
 
+body.home-page {
+    position: relative;
+}
+
+body.home-page::before,
+body.home-page::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+body.home-page::before {
+    background-image:
+        linear-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 184, 166, 0.045) 1px, transparent 1px);
+    background-size: 52px 52px;
+    mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.72) 46%, transparent 86%);
+    opacity: 0.8;
+    animation: gridDrift 24s linear infinite;
+}
+
+body.home-page::after {
+    inset: -16% -10%;
+    background-image:
+        repeating-linear-gradient(120deg, transparent 0 118px, rgba(37, 99, 235, 0.045) 118px 120px, transparent 120px 230px),
+        repeating-linear-gradient(60deg, transparent 0 160px, rgba(20, 184, 166, 0.035) 160px 162px, transparent 162px 280px);
+    mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.56) 50%, transparent 84%);
+    opacity: 0.75;
+    transform: translate3d(0, 0, 0);
+    animation: signalSweep 32s linear infinite;
+}
+
 a {
     color: inherit;
     text-decoration: none;
@@ -68,6 +102,8 @@ p {
 }
 
 .app-shell {
+    position: relative;
+    z-index: 1;
     width: min(1160px, calc(100% - 32px));
     margin: 0 auto;
     padding: 18px 0 48px;
@@ -607,6 +643,18 @@ p {
     }
 }
 
+@keyframes gridDrift {
+    to {
+        background-position: 52px 52px, 52px 52px;
+    }
+}
+
+@keyframes signalSweep {
+    to {
+        transform: translate3d(-92px, 70px, 0);
+    }
+}
+
 @keyframes avatarPulse {
     0%,
     100% {
@@ -989,6 +1037,15 @@ p {
 }
 
 @media (max-width: 640px) {
+    body.home-page::before {
+        background-size: 42px 42px;
+        opacity: 0.55;
+    }
+
+    body.home-page::after {
+        opacity: 0.42;
+    }
+
     .app-shell {
         width: min(370px, calc(100% - 20px));
         max-width: 370px;
@@ -1064,5 +1121,12 @@ p {
     .typing-dots {
         grid-column: 1 / -1;
         width: fit-content;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.home-page::before,
+    body.home-page::after {
+        animation: none;
     }
 }
