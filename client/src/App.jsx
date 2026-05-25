@@ -406,6 +406,147 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
   );
 }
 
+function cleanPdfText(value) {
+  return String(value || "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\[(.*?)\]\((.*?)\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function addPdfWrappedText(doc, text, options) {
+  const { x, y, maxWidth, lineHeight, pageHeight, bottomMargin, indent = 0 } = options;
+  let nextY = y;
+  const lines = doc.splitTextToSize(text, maxWidth - indent);
+
+  lines.forEach(line => {
+    if (nextY > pageHeight - bottomMargin) {
+      doc.addPage();
+      nextY = 24;
+    }
+
+    doc.text(line, x + indent, nextY);
+    nextY += lineHeight;
+  });
+
+  return nextY;
+}
+
+async function downloadNotesPdf(result) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 42;
+  const maxWidth = pageWidth - margin * 2;
+  let y = 48;
+
+  doc.setProperties({
+    title: "StudyBuddy Generated Notes",
+    subject: "Generated study notes",
+    creator: "StudyBuddy"
+  });
+
+  doc.setTextColor(15, 23, 42);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("StudyBuddy Generated Notes", margin, y);
+  y += 18;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Created ${new Date().toLocaleDateString()} from ${result.view || "study"} notes`, margin, y);
+  y += 26;
+
+  String(result.text || "").replace(/\r\n/g, "\n").split("\n").forEach(rawLine => {
+    const line = rawLine.trim();
+
+    if (!line) {
+      y += 8;
+      return;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const ordered = line.match(/^(\d+)\.\s+(.+)$/);
+    const unordered = line.match(/^[-*]\s+(.+)$/);
+
+    if (heading) {
+      const level = heading[1].length;
+      const fontSize = level === 1 ? 16 : level === 2 ? 13 : 11;
+      y += level === 1 ? 8 : 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(fontSize);
+      doc.setTextColor(15, 23, 42);
+      y = addPdfWrappedText(doc, cleanPdfText(heading[2]), {
+        x: margin,
+        y,
+        maxWidth,
+        lineHeight: fontSize + 5,
+        pageHeight,
+        bottomMargin: margin
+      });
+      y += 5;
+      return;
+    }
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10.5);
+    doc.setTextColor(30, 41, 59);
+
+    if (ordered) {
+      y = addPdfWrappedText(doc, `${ordered[1]}. ${cleanPdfText(ordered[2])}`, {
+        x: margin,
+        y,
+        maxWidth,
+        lineHeight: 15,
+        pageHeight,
+        bottomMargin: margin,
+        indent: 10
+      });
+      y += 3;
+      return;
+    }
+
+    if (unordered) {
+      y = addPdfWrappedText(doc, `- ${cleanPdfText(unordered[1])}`, {
+        x: margin,
+        y,
+        maxWidth,
+        lineHeight: 15,
+        pageHeight,
+        bottomMargin: margin,
+        indent: 10
+      });
+      y += 3;
+      return;
+    }
+
+    y = addPdfWrappedText(doc, cleanPdfText(line), {
+      x: margin,
+      y,
+      maxWidth,
+      lineHeight: 15,
+      pageHeight,
+      bottomMargin: margin
+    });
+    y += 5;
+  });
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+    doc.setPage(pageNumber);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Page ${pageNumber} of ${pageCount}`, pageWidth - margin, pageHeight - 24, { align: "right" });
+  }
+
+  const fileDate = new Date().toISOString().slice(0, 10);
+  doc.save(`studybuddy-${result.view || "generated"}-notes-${fileDate}.pdf`);
+}
+
 function NotesResult({ result, activeView }) {
   const visible = result.status === "idle" ? activeView === "home" : result.view === activeView;
 
@@ -486,9 +627,9 @@ function NotesResult({ result, activeView }) {
               <span className="eyebrow"><CheckCircle2 size={15} /> Generated notes</span>
               <h3 className="mt-1 text-lg font-extrabold text-ink">Ready to revise</h3>
             </div>
-            <button type="button" className="ghost-btn" onClick={() => window.print()}>
+            <button type="button" className="ghost-btn" onClick={() => downloadNotesPdf(result)}>
               <Download size={18} />
-              Print / Save PDF
+              Download PDF
             </button>
           </div>
           <div className="notes-output generation-output" dangerouslySetInnerHTML={{ __html: result.html }} />

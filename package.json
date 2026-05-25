@@ -20,6 +20,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.468.0",
     "mongoose": "^8.9.2",
     "multer": "^2.1.1",
