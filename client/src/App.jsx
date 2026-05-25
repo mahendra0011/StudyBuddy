@@ -31,6 +31,7 @@ import {
   UploadCloud,
   User,
   UserPlus,
+  Volume1,
   Volume2,
   WandSparkles,
   X
@@ -753,6 +754,13 @@ function PomodoroPanel() {
   const [remaining, setRemaining] = useState(POMODORO_DURATIONS.focus);
   const [running, setRunning] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const alarmContextRef = useRef(null);
+  const alarmPlayedRef = useRef(false);
+
+  useEffect(() => () => {
+    alarmContextRef.current?.close?.();
+    alarmContextRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!running) {
@@ -767,10 +775,11 @@ function PomodoroPanel() {
   }, [running]);
 
   useEffect(() => {
-    if (remaining === 0) {
+    if (remaining === 0 && running) {
       setRunning(false);
+      playCompletionAlarm();
     }
-  }, [remaining]);
+  }, [remaining, running]);
 
   useEffect(() => {
     if (!isFullscreen) {
@@ -796,14 +805,87 @@ function PomodoroPanel() {
   function changeMode(nextMode) {
     setMode(nextMode);
     setRunning(false);
+    alarmPlayedRef.current = false;
     setRemaining(POMODORO_DURATIONS[nextMode]);
   }
 
   function toggleTimer() {
+    if (!running) {
+      primeAlarmAudio();
+    }
+
     if (remaining === 0) {
+      alarmPlayedRef.current = false;
       setRemaining(POMODORO_DURATIONS[mode]);
     }
     setRunning(value => !value);
+  }
+
+  function getAlarmContext() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return null;
+    }
+
+    if (!alarmContextRef.current || alarmContextRef.current.state === "closed") {
+      alarmContextRef.current = new AudioContext();
+    }
+
+    return alarmContextRef.current;
+  }
+
+  function primeAlarmAudio() {
+    const context = getAlarmContext();
+    context?.resume?.();
+  }
+
+  function playCompletionAlarm() {
+    if (alarmPlayedRef.current) {
+      return;
+    }
+
+    alarmPlayedRef.current = true;
+    const context = getAlarmContext();
+
+    if (!context) {
+      return;
+    }
+
+    context.resume?.();
+
+    const startTime = context.currentTime + 0.03;
+    const notes = [880, 1174.66, 1318.51, 1174.66];
+    const masterGain = context.createGain();
+    masterGain.gain.setValueAtTime(0.0001, startTime);
+    masterGain.gain.exponentialRampToValueAtTime(0.22, startTime + 0.03);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 1.15);
+    masterGain.connect(context.destination);
+
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const noteStart = startTime + index * 0.18;
+      const noteEnd = noteStart + 0.14;
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, noteStart);
+      gain.gain.setValueAtTime(0.0001, noteStart);
+      gain.gain.exponentialRampToValueAtTime(0.8, noteStart + 0.025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+
+      oscillator.connect(gain).connect(masterGain);
+      oscillator.start(noteStart);
+      oscillator.stop(noteEnd + 0.03);
+    });
+
+    window.setTimeout(() => {
+      try {
+        masterGain.disconnect();
+      } catch (error) {
+        // The context may already be closed if the user navigates away.
+      }
+    }, 1400);
   }
 
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
@@ -826,7 +908,13 @@ function PomodoroPanel() {
       <ToolShell view="pomodoro" eyebrow="Pomodoro" title="Run focused study sprints" description="Use focus and break modes to study with a simple Pomodoro timer.">
         <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 text-center">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-extrabold text-amber-700">
+                <Volume1 size={13} />
+                Alarm
+              </span>
+            </div>
             <button type="button" className="ghost-btn min-h-10 px-3" onClick={() => setIsFullscreen(true)}>
               <Maximize2 size={16} />
               Full screen
@@ -878,6 +966,10 @@ function PomodoroPanel() {
                   Pomodoro focus
                 </span>
                 <h2 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">{modeLabels[mode]}</h2>
+                <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/85 px-3 py-1.5 text-xs font-extrabold uppercase text-amber-700">
+                  <Volume1 size={14} />
+                  Alarm on complete
+                </span>
               </div>
               <button type="button" className="ghost-btn bg-white" onClick={() => setIsFullscreen(false)}>
                 <Minimize2 size={17} />
