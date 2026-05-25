@@ -750,12 +750,17 @@ function VideoPanel({ onGenerate }) {
 }
 
 function PomodoroPanel() {
+  const [toolMode, setToolMode] = useState("pomodoro");
   const [mode, setMode] = useState("focus");
   const [remaining, setRemaining] = useState(POMODORO_DURATIONS.focus);
+  const [customMinutes, setCustomMinutes] = useState(10);
+  const [customSeconds, setCustomSeconds] = useState(0);
+  const [stopwatchElapsed, setStopwatchElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const alarmContextRef = useRef(null);
   const alarmPlayedRef = useRef(false);
+  const customDuration = getCustomDuration(customMinutes, customSeconds);
 
   useEffect(() => () => {
     alarmContextRef.current?.close?.();
@@ -768,18 +773,30 @@ function PomodoroPanel() {
     }
 
     const timer = window.setInterval(() => {
+      if (toolMode === "stopwatch") {
+        setStopwatchElapsed(value => value + 1);
+        return;
+      }
+
       setRemaining(value => Math.max(0, value - 1));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [running]);
+  }, [running, toolMode]);
 
   useEffect(() => {
-    if (remaining === 0 && running) {
+    if (toolMode !== "stopwatch" && remaining === 0 && running) {
       setRunning(false);
       playCompletionAlarm();
     }
-  }, [remaining, running]);
+  }, [remaining, running, toolMode]);
+
+  useEffect(() => {
+    if (toolMode === "custom" && !running) {
+      alarmPlayedRef.current = false;
+      setRemaining(customDuration);
+    }
+  }, [customDuration, running, toolMode]);
 
   useEffect(() => {
     if (!isFullscreen) {
@@ -802,22 +819,112 @@ function PomodoroPanel() {
     };
   }, [isFullscreen]);
 
+  function getCustomDuration(minutesValue, secondsValue) {
+    return Math.max(1, (Number(minutesValue) || 0) * 60 + (Number(secondsValue) || 0));
+  }
+
+  function clampNumber(value, min, max) {
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue)) {
+      return min;
+    }
+
+    return Math.min(max, Math.max(min, Math.floor(numericValue)));
+  }
+
+  function formatTime(totalSeconds) {
+    const safeSeconds = Math.max(0, totalSeconds);
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutesValue = Math.floor((safeSeconds % 3600) / 60);
+    const secondsValue = safeSeconds % 60;
+
+    if (hours > 0) {
+      return `${String(hours).padStart(2, "0")}:${String(minutesValue).padStart(2, "0")}:${String(secondsValue).padStart(2, "0")}`;
+    }
+
+    return `${String(minutesValue).padStart(2, "0")}:${String(secondsValue).padStart(2, "0")}`;
+  }
+
+  function getDurationLabel(totalSeconds) {
+    if (totalSeconds >= 3600) {
+      return formatTime(totalSeconds);
+    }
+
+    if (totalSeconds >= 60 && totalSeconds % 60 === 0) {
+      return `${totalSeconds / 60} min`;
+    }
+
+    if (totalSeconds >= 60) {
+      return `${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s`;
+    }
+
+    return `${totalSeconds} sec`;
+  }
+
+  function getCountdownDuration() {
+    return toolMode === "custom" ? customDuration : POMODORO_DURATIONS[mode];
+  }
+
+  function selectToolMode(nextToolMode) {
+    setToolMode(nextToolMode);
+    setRunning(false);
+    alarmPlayedRef.current = false;
+
+    if (nextToolMode === "stopwatch") {
+      setStopwatchElapsed(0);
+      return;
+    }
+
+    setRemaining(nextToolMode === "custom" ? customDuration : POMODORO_DURATIONS[mode]);
+  }
+
   function changeMode(nextMode) {
+    setToolMode("pomodoro");
     setMode(nextMode);
     setRunning(false);
     alarmPlayedRef.current = false;
     setRemaining(POMODORO_DURATIONS[nextMode]);
   }
 
+  function updateCustomMinutes(value) {
+    const nextMinutes = clampNumber(value, 0, 180);
+    setCustomMinutes(nextMinutes);
+    setRunning(false);
+    alarmPlayedRef.current = false;
+    setRemaining(getCustomDuration(nextMinutes, customSeconds));
+  }
+
+  function updateCustomSeconds(value) {
+    const nextSeconds = clampNumber(value, 0, 59);
+    setCustomSeconds(nextSeconds);
+    setRunning(false);
+    alarmPlayedRef.current = false;
+    setRemaining(getCustomDuration(customMinutes, nextSeconds));
+  }
+
+  function resetActiveTool() {
+    setRunning(false);
+    alarmPlayedRef.current = false;
+
+    if (toolMode === "stopwatch") {
+      setStopwatchElapsed(0);
+      return;
+    }
+
+    setRemaining(getCountdownDuration());
+  }
+
   function toggleTimer() {
-    if (!running) {
+    if (!running && toolMode !== "stopwatch") {
       primeAlarmAudio();
     }
 
-    if (remaining === 0) {
+    if (!running && toolMode !== "stopwatch" && remaining === 0) {
       alarmPlayedRef.current = false;
-      setRemaining(POMODORO_DURATIONS[mode]);
+      setRemaining(getCountdownDuration());
     }
+
     setRunning(value => !value);
   }
 
@@ -888,32 +995,81 @@ function PomodoroPanel() {
     }, 1400);
   }
 
-  const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
-  const seconds = String(remaining % 60).padStart(2, "0");
-  const progress = (remaining / POMODORO_DURATIONS[mode]) * 100;
-  const totalMinutes = Math.round(POMODORO_DURATIONS[mode] / 60);
   const modeLabels = {
     focus: "Deep focus",
     short: "Short break",
     long: "Long break"
   };
   const modeItems = ["focus", "short", "long"];
+  const toolItems = [
+    { id: "pomodoro", label: "Pomodoro" },
+    { id: "custom", label: "Custom timer" },
+    { id: "stopwatch", label: "Stopwatch" }
+  ];
+  const countdownDuration = getCountdownDuration();
+  const displaySeconds = toolMode === "stopwatch" ? stopwatchElapsed : remaining;
+  const displayTime = formatTime(displaySeconds);
+  const progress = toolMode === "stopwatch" ? ((stopwatchElapsed % 60) / 60) * 100 : (remaining / countdownDuration) * 100;
+  const boundedProgress = Math.min(100, Math.max(0, progress));
+  const hasStarted = toolMode === "stopwatch" ? stopwatchElapsed > 0 : remaining < countdownDuration;
+  const statusLabel = running ? "Running" : hasStarted ? "Paused" : "Ready";
+  const activeTitle = toolMode === "stopwatch" ? "Stopwatch" : toolMode === "custom" ? "Custom timer" : modeLabels[mode];
+  const headerTitle = toolMode === "stopwatch" ? "Stopwatch" : "Focus timer";
+  const ringColor = toolMode === "stopwatch" ? "#14b8a6" : toolMode === "custom" ? "#2563eb" : "#f59e0b";
+  const ringTrack = toolMode === "stopwatch" ? "#ccfbf1" : toolMode === "custom" ? "#dbeafe" : "#fff7ed";
+  const accentTextClass = toolMode === "stopwatch" ? "text-teal-700" : toolMode === "custom" ? "text-blue-700" : "text-amber-700";
+  const activeToolClass = toolMode === "stopwatch" ? "border-teal-300 bg-teal-50 text-teal-800" : toolMode === "custom" ? "border-blue-300 bg-blue-50 text-blue-800" : "border-amber-300 bg-amber-50 text-amber-800";
+  const progressText = toolMode === "stopwatch" ? `${formatTime(stopwatchElapsed)} elapsed` : `${Math.round(boundedProgress)}% left`;
+  const durationText = toolMode === "stopwatch" ? "Count up" : getDurationLabel(countdownDuration);
 
   function getModeLabel(item) {
     return item === "short" ? "Break" : item === "long" ? "Long" : "Focus";
   }
 
+  function renderToolButtons(extraClassName = "") {
+    return (
+      <div className={classNames("grid grid-cols-3 gap-2", extraClassName)}>
+        {toolItems.map(item => (
+          <button key={item.id} type="button" onClick={() => selectToolMode(item.id)} className={classNames("min-h-11 rounded-lg border border-line bg-white px-2 text-sm font-extrabold transition hover:border-blue-200 hover:bg-blue-50", toolMode === item.id && activeToolClass)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  function renderCustomFields(fullscreen = false) {
+    return (
+      <div className={classNames("rounded-lg border border-blue-100 bg-blue-50/80 p-3", fullscreen && "bg-white/80 shadow-tight")}>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="grid gap-1 text-xs font-extrabold uppercase text-blue-700">
+            Minutes
+            <input className="field bg-white text-center text-base font-black text-ink" type="number" min="0" max="180" value={customMinutes} onChange={event => updateCustomMinutes(event.target.value)} />
+          </label>
+          <label className="grid gap-1 text-xs font-extrabold uppercase text-blue-700">
+            Seconds
+            <input className="field bg-white text-center text-base font-black text-ink" type="number" min="0" max="59" value={customSeconds} onChange={event => updateCustomSeconds(event.target.value)} />
+          </label>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="pomodoro-stage">
-      <ToolShell view="pomodoro" eyebrow="Pomodoro" title="Run focused study sprints" description="Use focus and break modes to study with a simple Pomodoro timer.">
-        <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-5 text-center">
+      <ToolShell view="pomodoro" eyebrow="Focus tools" title="Run focused study sprints" description="Use Pomodoro, custom countdowns, and a stopwatch for study sessions.">
+        {renderToolButtons()}
+
+        <div className="rounded-lg border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-blue-50 p-5 text-center">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-extrabold uppercase text-amber-700">{modeLabels[mode]}</span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-extrabold text-amber-700">
-                <Volume1 size={13} />
-                Alarm
-              </span>
+              <span className={classNames("text-xs font-extrabold uppercase", accentTextClass)}>{activeTitle}</span>
+              {toolMode !== "stopwatch" && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-extrabold text-amber-700">
+                  <Volume1 size={13} />
+                  Alarm
+                </span>
+              )}
             </div>
             <button type="button" className="ghost-btn min-h-10 px-3" onClick={() => setIsFullscreen(true)}>
               <Maximize2 size={16} />
@@ -922,34 +1078,39 @@ function PomodoroPanel() {
           </div>
           <div
             className="pomodoro-ring mx-auto mt-5 grid place-items-center rounded-full"
-            style={{ background: `conic-gradient(#f59e0b ${progress}%, #fff7ed ${progress}% 100%)` }}
+            style={{ background: `conic-gradient(${ringColor} ${boundedProgress}%, ${ringTrack} ${boundedProgress}% 100%)` }}
           >
             <div className="pomodoro-core grid place-items-center rounded-full border border-amber-100 bg-white shadow-tight">
               <div>
-                <div className="text-xs font-extrabold uppercase text-amber-700">{running ? "Running" : "Ready"}</div>
-                <div className="mt-2 text-5xl font-black tracking-normal text-ink sm:text-6xl">{minutes}:{seconds}</div>
-                <div className="mt-2 text-sm font-bold text-muted">{Math.round(progress)}% left</div>
+                <div className={classNames("text-xs font-extrabold uppercase", accentTextClass)}>{statusLabel}</div>
+                <div className="mt-2 text-5xl font-black tracking-normal text-ink sm:text-6xl">{displayTime}</div>
+                <div className="mt-2 text-sm font-bold text-muted">{progressText}</div>
               </div>
             </div>
           </div>
           <div className="mx-auto mt-4 flex max-w-sm items-center justify-between text-xs font-bold uppercase text-muted">
             <span>0</span>
-            <span>{totalMinutes} min</span>
+            <span>{durationText}</span>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {modeItems.map(item => (
-            <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-11 rounded-lg border border-line bg-white font-bold capitalize transition hover:border-amber-300 hover:bg-amber-50", mode === item && "border-amber-300 bg-amber-50 text-amber-800")}>
-              {getModeLabel(item)}
-            </button>
-          ))}
-        </div>
+
+        {toolMode === "custom" && renderCustomFields()}
+
+        {toolMode === "pomodoro" && (
+          <div className="grid grid-cols-3 gap-2">
+            {modeItems.map(item => (
+              <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-11 rounded-lg border border-line bg-white font-bold capitalize transition hover:border-amber-300 hover:bg-amber-50", mode === item && "border-amber-300 bg-amber-50 text-amber-800")}>
+                {getModeLabel(item)}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           <button type="button" className="primary-btn" onClick={toggleTimer}>
             {running ? <Pause size={18} /> : <Play size={18} />}
             {running ? "Pause" : "Start"}
           </button>
-          <button type="button" className="ghost-btn" onClick={() => changeMode(mode)}>
+          <button type="button" className="ghost-btn" onClick={resetActiveTool}>
             <RotateCcw size={17} />
             Reset
           </button>
@@ -957,19 +1118,21 @@ function PomodoroPanel() {
       </ToolShell>
 
       {isFullscreen && (
-        <section className="pomodoro-fullscreen" role="dialog" aria-modal="true" aria-label="Pomodoro full screen focus mode">
+        <section className="pomodoro-fullscreen" role="dialog" aria-modal="true" aria-label="Focus timer full screen mode">
           <div className="pomodoro-fullscreen-shell">
             <header className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <span className="inline-flex items-center gap-2 text-xs font-extrabold uppercase text-amber-700">
+                <span className={classNames("inline-flex items-center gap-2 text-xs font-extrabold uppercase", accentTextClass)}>
                   <Clock3 size={15} />
-                  Pomodoro focus
+                  {headerTitle}
                 </span>
-                <h2 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">{modeLabels[mode]}</h2>
-                <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/85 px-3 py-1.5 text-xs font-extrabold uppercase text-amber-700">
-                  <Volume1 size={14} />
-                  Alarm on complete
-                </span>
+                <h2 className="mt-2 text-3xl font-black leading-tight text-ink sm:text-4xl">{activeTitle}</h2>
+                {toolMode !== "stopwatch" && (
+                  <span className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-white/85 px-3 py-1.5 text-xs font-extrabold uppercase text-amber-700">
+                    <Volume1 size={14} />
+                    Alarm on complete
+                  </span>
+                )}
               </div>
               <button type="button" className="ghost-btn bg-white" onClick={() => setIsFullscreen(false)}>
                 <Minimize2 size={17} />
@@ -980,32 +1143,36 @@ function PomodoroPanel() {
             <div className="pomodoro-fullscreen-main">
               <div
                 className="pomodoro-focus-ring grid place-items-center rounded-full"
-                style={{ background: `conic-gradient(#f59e0b ${progress}%, rgba(255,255,255,0.72) ${progress}% 100%)` }}
+                style={{ background: `conic-gradient(${ringColor} ${boundedProgress}%, rgba(255,255,255,0.72) ${boundedProgress}% 100%)` }}
               >
                 <div className="pomodoro-focus-core grid place-items-center rounded-full bg-white text-center shadow-soft">
                   <div>
-                    <div className="text-sm font-extrabold uppercase text-amber-700">{running ? "Running" : "Ready"}</div>
-                    <div className="mt-3 text-[clamp(4rem,11vw,8rem)] font-black leading-none tracking-normal text-ink">{minutes}:{seconds}</div>
-                    <div className="mt-4 text-base font-bold text-muted">{Math.round(progress)}% left of {totalMinutes} min</div>
+                    <div className={classNames("text-sm font-extrabold uppercase", accentTextClass)}>{statusLabel}</div>
+                    <div className="mt-3 text-[clamp(4rem,11vw,8rem)] font-black leading-none tracking-normal text-ink">{displayTime}</div>
+                    <div className="mt-4 text-base font-bold text-muted">{toolMode === "stopwatch" ? progressText : `${Math.round(boundedProgress)}% left of ${durationText}`}</div>
                   </div>
                 </div>
               </div>
             </div>
 
             <footer className="mx-auto grid w-full max-w-3xl gap-3">
-              <div className="grid grid-cols-3 gap-2">
-                {modeItems.map(item => (
-                  <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-12 rounded-lg border border-amber-200 bg-white px-3 font-extrabold text-muted shadow-tight transition hover:bg-amber-50", mode === item && "border-amber-400 bg-amber-50 text-amber-800")}>
-                    {getModeLabel(item)}
-                  </button>
-                ))}
-              </div>
+              {renderToolButtons()}
+              {toolMode === "custom" && renderCustomFields(true)}
+              {toolMode === "pomodoro" && (
+                <div className="grid grid-cols-3 gap-2">
+                  {modeItems.map(item => (
+                    <button key={item} type="button" onClick={() => changeMode(item)} className={classNames("min-h-12 rounded-lg border border-amber-200 bg-white px-3 font-extrabold text-muted shadow-tight transition hover:bg-amber-50", mode === item && "border-amber-400 bg-amber-50 text-amber-800")}>
+                      {getModeLabel(item)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <button type="button" className="primary-btn min-h-14" onClick={toggleTimer}>
                   {running ? <Pause size={20} /> : <Play size={20} />}
                   {running ? "Pause" : "Start"}
                 </button>
-                <button type="button" className="ghost-btn min-h-14 bg-white" onClick={() => changeMode(mode)}>
+                <button type="button" className="ghost-btn min-h-14 bg-white" onClick={resetActiveTool}>
                   <RotateCcw size={19} />
                   Reset
                 </button>
