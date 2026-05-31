@@ -414,7 +414,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
             {[
               ["MongoDB workspace", "Notes, tasks, and links stored on the backend"],
               ["JWT session", "Protected study actions"],
-              ["Private library", "Saved per signed-in student"]
+              ["Account library", "Saved per signed-in student"]
             ].map(([title, detail]) => (
               <div key={title} className="rounded-lg border border-white/[0.15] bg-white/[0.10] p-3">
                 <strong className="block text-sm">{title}</strong>
@@ -1843,57 +1843,56 @@ function SavedLibraryPanel({ token, user, onOpenAuth }) {
 
   if (!token) {
     return (
-      <ToolShell view="library" eyebrow="Private library" title="Saved study work" description="Sign in to view generated notes, PDF summaries, and YouTube summaries tied to your account.">
-        <div className="rounded-lg border border-amber-100 bg-amber-50 p-5">
+      <section className="mt-7 grid min-h-[calc(100vh-8rem)] place-items-center rounded-xl border border-line bg-white p-5 shadow-tight">
+        <div className="w-full max-w-md rounded-lg border border-amber-100 bg-amber-50 p-5">
           <span className="eyebrow text-amber-700"><ShieldCheck size={15} /> Account required</span>
-          <h3 className="mt-2 text-xl font-extrabold text-ink">Your library is private.</h3>
-          <p className="mt-2 leading-7 text-muted">Create or log in to an account so generated notes, PDF summaries, YouTube summaries, playlists, and tasks stay with you.</p>
+          <h2 className="mt-2 text-2xl font-extrabold text-ink">Sign in to open your library</h2>
+          <p className="mt-2 leading-7 text-muted">Your saved notes, summaries, playlists, and tasks stay with your account.</p>
           <button type="button" className="primary-btn mt-4" onClick={onOpenAuth}>
             <User size={18} />
             Sign in
           </button>
         </div>
-      </ToolShell>
+      </section>
     );
   }
 
   return (
-    <ToolShell view="library" eyebrow="Private library" title="Saved study work" description="Review generated notes, PDF summaries, and YouTube summaries saved to your account.">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-100 bg-teal-50 p-3">
-        <div>
-          <strong className="block text-ink">{user ? `${user.name}'s library` : "Account library"}</strong>
-          <span className="text-sm text-muted">{items.length} saved item{items.length === 1 ? "" : "s"}</span>
-        </div>
-        <button type="button" className="ghost-btn bg-white" onClick={loadItems} disabled={loading}>
-          {loading ? <Loader2 className="animate-spin" size={17} /> : <RotateCcw size={17} />}
-          Refresh
-        </button>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {filters.map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            className={classNames("min-h-10 rounded-lg border border-line bg-white px-4 text-sm font-bold text-muted shadow-tight transition hover:border-teal-300 hover:bg-teal-50", filter === value && "border-teal-300 bg-teal-50 text-teal-800")}
-            onClick={() => setFilter(value)}
-          >
-            {label}
+    <section className="mt-5 grid min-h-[calc(100vh-7.5rem)] overflow-hidden rounded-xl border border-line bg-white shadow-tight lg:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="flex min-h-[22rem] flex-col border-b border-line bg-slate-50/80 lg:border-b-0 lg:border-r">
+        <div className="flex items-center justify-between gap-3 border-b border-line p-3">
+          <div className="min-w-0">
+            <strong className="block truncate text-sm text-ink">{user ? user.name : "Library"}</strong>
+            <span className="text-xs font-bold uppercase text-muted">{items.length} saved</span>
+          </div>
+          <button type="button" className="icon-btn h-9 w-9 shrink-0 bg-white" onClick={loadItems} disabled={loading} title="Refresh">
+            {loading ? <Loader2 className="animate-spin" size={16} /> : <RotateCcw size={16} />}
           </button>
-        ))}
-      </div>
-
-      {message && <p className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{message}</p>}
-
-      {!filteredItems.length && (
-        <div className="rounded-lg border border-line bg-slate-50 p-5 text-muted">
-          {loading ? "Loading saved study work..." : "No saved items in this section yet."}
         </div>
-      )}
 
-      {!!filteredItems.length && (
-        <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-          <div className="grid max-h-[34rem] gap-3 overflow-auto pr-1">
+        <div className="grid grid-cols-2 gap-2 border-b border-line p-3 sm:grid-cols-4 lg:grid-cols-2">
+          {filters.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={classNames("min-h-9 rounded-md border border-line bg-white px-3 text-xs font-extrabold text-muted transition hover:border-teal-300 hover:bg-teal-50", filter === value && "border-teal-300 bg-teal-50 text-teal-800")}
+              onClick={() => setFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {message && <p className="m-3 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{message}</p>}
+
+        {!filteredItems.length && (
+          <div className="m-3 rounded-lg border border-line bg-white p-4 text-sm text-muted">
+            {loading ? "Loading..." : "No saved items yet."}
+          </div>
+        )}
+
+        {!!filteredItems.length && (
+          <div className="grid flex-1 content-start gap-2 overflow-auto p-3">
             {filteredItems.map(item => {
               const meta = getLibraryMeta(item.type);
               const Icon = meta.icon;
@@ -1904,50 +1903,61 @@ function SavedLibraryPanel({ token, user, onOpenAuth }) {
                   type="button"
                   onClick={() => setActiveItemId(item._id)}
                   className={classNames(
-                    "rounded-lg border bg-white p-4 text-left shadow-tight transition hover:border-teal-300 hover:bg-teal-50/40",
-                    activeItem?._id === item._id ? "border-teal-300 ring-2 ring-teal-100" : "border-line"
+                    "rounded-lg border bg-white p-3 text-left transition hover:border-teal-300 hover:bg-teal-50/40",
+                    activeItem?._id === item._id ? "border-teal-300 shadow-tight ring-2 ring-teal-100" : "border-transparent"
                   )}
                 >
-                  <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-extrabold uppercase", meta.badge)}>
-                    <Icon size={14} />
+                  <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2 py-0.5 text-[0.68rem] font-extrabold uppercase", meta.badge)}>
+                    <Icon size={13} />
                     {meta.label}
                   </span>
-                  <strong className="mt-3 block text-base leading-snug text-ink">{item.title}</strong>
-                  <span className="mt-1 block text-xs font-bold uppercase text-muted">{formatSavedDate(item.createdAt)}</span>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">{getPreviewText(item.content)}</p>
+                  <strong className="mt-2 line-clamp-2 block text-sm leading-snug text-ink">{item.title}</strong>
+                  <span className="mt-1 block text-xs font-bold text-muted">{formatSavedDate(item.createdAt)}</span>
+                  <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">{getPreviewText(item.content, 110)}</p>
                 </button>
               );
             })}
           </div>
+        )}
+      </aside>
 
-          {activeItem && (
-            <article className="overflow-hidden rounded-lg border border-line bg-white shadow-tight">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50/80 px-4 py-3">
-                <div>
-                  <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-extrabold uppercase", getLibraryMeta(activeItem.type).badge)}>
-                    {getLibraryMeta(activeItem.type).label}
-                  </span>
-                  <h3 className="mt-2 text-lg font-extrabold text-ink">{activeItem.title}</h3>
-                  <p className="mt-1 text-sm text-muted">{formatSavedDate(activeItem.createdAt)}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {activeItem.sourceUrl && (
-                    <a href={activeItem.sourceUrl} target="_blank" rel="noreferrer" className="ghost-btn bg-white">
-                      Open source <ArrowRight size={16} />
-                    </a>
-                  )}
-                  <button type="button" className="ghost-btn bg-white text-rose-700 hover:bg-rose-50" onClick={() => deleteSavedItem(activeItem)}>
-                    <Trash2 size={17} />
-                    Delete
-                  </button>
-                </div>
+      <main className="flex min-h-[calc(100vh-7.5rem)] min-w-0 flex-col bg-white">
+        {activeItem ? (
+          <>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 sm:px-6">
+              <div className="min-w-0">
+                <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-extrabold uppercase", getLibraryMeta(activeItem.type).badge)}>
+                  {getLibraryMeta(activeItem.type).label}
+                </span>
+                <h2 className="mt-2 truncate text-xl font-extrabold text-ink">{activeItem.title}</h2>
+                <p className="mt-1 text-sm text-muted">{formatSavedDate(activeItem.createdAt)}</p>
               </div>
-              <div className="notes-output generation-output max-h-[34rem] overflow-auto" dangerouslySetInnerHTML={{ __html: markdownToHTML(activeItem.content) }} />
+              <div className="flex flex-wrap gap-2">
+                {activeItem.sourceUrl && (
+                  <a href={activeItem.sourceUrl} target="_blank" rel="noreferrer" className="ghost-btn bg-white">
+                    Open source <ArrowRight size={16} />
+                  </a>
+                )}
+                <button type="button" className="ghost-btn bg-white text-rose-700 hover:bg-rose-50" onClick={() => deleteSavedItem(activeItem)}>
+                  <Trash2 size={17} />
+                  Delete
+                </button>
+              </div>
+            </div>
+            <article className="min-h-0 flex-1 overflow-auto">
+              <div className="notes-output generation-output mx-auto w-full max-w-5xl px-5 py-6 sm:px-8 lg:px-10" dangerouslySetInnerHTML={{ __html: markdownToHTML(activeItem.content) }} />
             </article>
-          )}
-        </div>
-      )}
-    </ToolShell>
+          </>
+        ) : (
+          <div className="grid flex-1 place-items-center p-6 text-center text-muted">
+            <div>
+              <FileText className="mx-auto text-slate-300" size={36} />
+              <p className="mt-3 font-semibold">Select a saved item to read.</p>
+            </div>
+          </div>
+        )}
+      </main>
+    </section>
   );
 }
 
