@@ -75,6 +75,12 @@ const VIEW_META = {
     metric: "Lecture summary",
     detail: "YouTube metadata and transcripts"
   },
+  library: {
+    icon: Bookmark,
+    tone: "teal",
+    metric: "Saved account library",
+    detail: "Notes, summaries, and study tasks"
+  },
   pomodoro: {
     icon: Clock3,
     tone: "amber",
@@ -172,6 +178,121 @@ function parseStoredAuth() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     return null;
   }
+}
+
+function getStoredStudyGoal() {
+  const currentGoal = localStorage.getItem(GOAL_STORAGE_KEY);
+  const legacyGoal = localStorage.getItem(LEGACY_GOAL_STORAGE_KEY);
+
+  if (!currentGoal && legacyGoal) {
+    localStorage.setItem(GOAL_STORAGE_KEY, legacyGoal);
+    localStorage.removeItem(LEGACY_GOAL_STORAGE_KEY);
+    return legacyGoal;
+  }
+
+  return currentGoal || "";
+}
+
+function getStoredStudyTasks() {
+  try {
+    const currentTasks = localStorage.getItem(TASK_STORAGE_KEY);
+    const legacyTasks = localStorage.getItem(LEGACY_TASK_STORAGE_KEY);
+
+    if (!currentTasks && legacyTasks) {
+      localStorage.setItem(TASK_STORAGE_KEY, legacyTasks);
+      localStorage.removeItem(LEGACY_TASK_STORAGE_KEY);
+      return JSON.parse(legacyTasks || "[]");
+    }
+
+    return JSON.parse(currentTasks || "[]");
+  } catch (error) {
+    return [];
+  }
+}
+
+function clearStoredStudyDrafts() {
+  localStorage.removeItem(GOAL_STORAGE_KEY);
+  localStorage.removeItem(TASK_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_GOAL_STORAGE_KEY);
+  localStorage.removeItem(LEGACY_TASK_STORAGE_KEY);
+}
+
+function getStudyItemType(view) {
+  if (view === "pdf") {
+    return "pdf";
+  }
+
+  if (view === "video") {
+    return "youtube";
+  }
+
+  return "note";
+}
+
+function createTitleFromPrompt(prompt) {
+  return String(prompt || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 72);
+}
+
+function getGeneratedTitle(payload, view) {
+  const explicitTitle = String(payload?.title || "").trim();
+
+  if (explicitTitle) {
+    return explicitTitle.slice(0, 160);
+  }
+
+  if (view === "pdf") {
+    return payload?.sourceName ? `PDF: ${payload.sourceName}` : "PDF summary";
+  }
+
+  if (view === "video") {
+    return payload?.metadata?.videoTitle || "YouTube lecture summary";
+  }
+
+  return createTitleFromPrompt(payload?.prompt) || `${payload?.category || "General"} notes`;
+}
+
+function createSavedStudyPayload(payload, view, text) {
+  const type = getStudyItemType(view);
+  const metadata = {
+    ...(payload?.metadata || {}),
+    language: payload?.language || "English",
+    depth: payload?.depth || "exam revision"
+  };
+
+  return {
+    type,
+    title: getGeneratedTitle(payload, view),
+    content: text,
+    prompt: payload?.prompt || "",
+    category: payload?.category || "General",
+    sourceUrl: payload?.sourceUrl || "",
+    metadata
+  };
+}
+
+function getPreviewText(value, maxLength = 180) {
+  const preview = String(value || "")
+    .replace(/[#*_`>[\]()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return preview.length > maxLength ? `${preview.slice(0, maxLength).trim()}...` : preview;
+}
+
+function formatSavedDate(value) {
+  if (!value) {
+    return "";
+  }
+
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function Layout({ page, activeView, user, onNavigateHome, onNavigateLectures, onOpenAuth, children }) {
@@ -285,15 +406,15 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
           </h2>
           <p className="mt-3 text-sm leading-7 text-blue-50/85">
             {user
-              ? "Your playlists and saved study workspace are connected to your profile."
-              : "Create a profile once, then keep playlists and study progress tied to your account."}
+              ? "Your playlists, saved notes, summaries, and tasks are connected to your profile."
+              : "Create a profile once, then keep notes, summaries, playlists, and progress tied to your account."}
           </p>
 
           <div className="mt-7 grid gap-3">
             {[
-              ["MongoDB profile", "Account data stored on the backend"],
-              ["JWT session", "Protected playlist actions"],
-              ["Private playlists", "Saved per signed-in student"]
+              ["MongoDB workspace", "Notes, tasks, and links stored on the backend"],
+              ["JWT session", "Protected study actions"],
+              ["Private library", "Saved per signed-in student"]
             ].map(([title, detail]) => (
               <div key={title} className="rounded-lg border border-white/[0.15] bg-white/[0.10] p-3">
                 <strong className="block text-sm">{title}</strong>
@@ -313,7 +434,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
               ? `You are signed in as ${user.name} (${user.email}).`
               : mode === "login"
                 ? "Enter your credentials to continue your study session."
-                : "Add your name, email, and password to start saving playlists."}
+                : "Add your name, email, and password to save notes, summaries, tasks, and playlists."}
           </p>
 
           {!user && (
@@ -547,7 +668,7 @@ async function downloadNotesPdf(result) {
   doc.save(`studybuddy-${result.view || "generated"}-notes-${fileDate}.pdf`);
 }
 
-function NotesResult({ result, activeView }) {
+function NotesResult({ result, activeView, token, onOpenAuth, onSaveResult }) {
   const visible = result.status === "idle" ? activeView === "home" : result.view === activeView;
 
   if (!visible) {
@@ -627,10 +748,31 @@ function NotesResult({ result, activeView }) {
               <span className="eyebrow"><CheckCircle2 size={15} /> Generated notes</span>
               <h3 className="mt-1 text-lg font-extrabold text-ink">Ready to revise</h3>
             </div>
-            <button type="button" className="ghost-btn" onClick={() => downloadNotesPdf(result)}>
-              <Download size={18} />
-              Download PDF
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              {result.saveMessage && (
+                <span
+                  className={classNames(
+                    "rounded-lg border px-3 py-2 text-xs font-extrabold uppercase",
+                    result.saveStatus === "saved" && "border-teal-200 bg-teal-50 text-teal-700",
+                    result.saveStatus === "saving" && "border-blue-200 bg-blue-50 text-blue-700",
+                    result.saveStatus === "error" && "border-rose-200 bg-rose-50 text-rose-700",
+                    result.saveStatus === "needs-auth" && "border-amber-200 bg-amber-50 text-amber-800"
+                  )}
+                >
+                  {result.saveMessage}
+                </span>
+              )}
+              {["needs-auth", "error"].includes(result.saveStatus) && (
+                <button type="button" className="ghost-btn" onClick={token ? onSaveResult : onOpenAuth}>
+                  <User size={17} />
+                  {token ? "Save now" : "Sign in"}
+                </button>
+              )}
+              <button type="button" className="ghost-btn" onClick={() => downloadNotesPdf(result)}>
+                <Download size={18} />
+                Download PDF
+              </button>
+            </div>
           </div>
           <div className="notes-output generation-output" dangerouslySetInnerHTML={{ __html: result.html }} />
         </div>
@@ -649,11 +791,14 @@ function HomePanel({ onGenerate }) {
 
   function submit(event) {
     event.preventDefault();
-    onGenerate(form, "home");
+    onGenerate({
+      ...form,
+      title: createTitleFromPrompt(form.prompt) || `${form.category} notes`
+    }, "home");
   }
 
   function useCategory(item) {
-    const nextForm = { ...form, prompt: item.prompt, category: item.category };
+    const nextForm = { ...form, prompt: item.prompt, category: item.category, title: item.title };
     setForm(nextForm);
     onGenerate(nextForm, "home");
   }
@@ -791,6 +936,8 @@ function PdfPanel({ onGenerate }) {
         body: formData
       });
       await onGenerate({
+        title: `PDF: ${extracted.fileName}`,
+        sourceName: extracted.fileName,
         prompt: [
           `Create clear study notes from this PDF: ${extracted.fileName}.`,
           `Pages read: ${extracted.pageLimit} of ${extracted.pageCount}.`,
@@ -798,7 +945,12 @@ function PdfPanel({ onGenerate }) {
         ].join("\n\n"),
         category: "PDF Summary",
         language: "English",
-        depth: "detailed classroom notes"
+        depth: "detailed classroom notes",
+        metadata: {
+          fileName: extracted.fileName,
+          pageCount: extracted.pageCount,
+          pageLimit: extracted.pageLimit
+        }
       }, "pdf");
     } catch (pdfError) {
       setError(friendlyError(pdfError));
@@ -849,6 +1001,8 @@ function VideoPanel({ onGenerate }) {
         body: { url }
       });
       await onGenerate({
+        title: video.title || "YouTube lecture summary",
+        sourceUrl: video.url || url,
         prompt: [
           "Create study notes from this YouTube lecture.",
           `Title: ${video.title || "Lecture"}`,
@@ -859,7 +1013,14 @@ function VideoPanel({ onGenerate }) {
         ].filter(Boolean).join("\n\n"),
         category: "YouTube Lecture",
         language: "English",
-        depth: "detailed classroom notes"
+        depth: "detailed classroom notes",
+        metadata: {
+          videoId: video.videoId,
+          videoTitle: video.title,
+          channelTitle: video.channelTitle,
+          duration: video.duration,
+          thumbnail: video.thumbnail
+        }
       }, "video");
     } catch (videoError) {
       setError(friendlyError(videoError));
@@ -1326,59 +1487,221 @@ function PomodoroPanel() {
   );
 }
 
-function TasksPanel() {
-  const [goal, setGoal] = useState(() => {
-    const currentGoal = localStorage.getItem(GOAL_STORAGE_KEY);
-    const legacyGoal = localStorage.getItem(LEGACY_GOAL_STORAGE_KEY);
+function taskFromStudyItem(item) {
+  return {
+    id: item._id || item.id,
+    text: item.content || item.title,
+    done: Boolean(item.done),
+    createdAt: item.createdAt
+  };
+}
 
-    if (!currentGoal && legacyGoal) {
-      localStorage.setItem(GOAL_STORAGE_KEY, legacyGoal);
-      localStorage.removeItem(LEGACY_GOAL_STORAGE_KEY);
-      return legacyGoal;
-    }
-
-    return currentGoal || "";
-  });
+function TasksPanel({ token, user, onOpenAuth }) {
+  const [goal, setGoal] = useState(() => token ? "" : getStoredStudyGoal());
   const [taskText, setTaskText] = useState("");
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const currentTasks = localStorage.getItem(TASK_STORAGE_KEY);
-      const legacyTasks = localStorage.getItem(LEGACY_TASK_STORAGE_KEY);
+  const [tasks, setTasks] = useState(() => token ? [] : getStoredStudyTasks());
+  const [loading, setLoading] = useState(false);
+  const [accountReady, setAccountReady] = useState(false);
+  const [message, setMessage] = useState("");
 
-      if (!currentTasks && legacyTasks) {
-        localStorage.setItem(TASK_STORAGE_KEY, legacyTasks);
-        localStorage.removeItem(LEGACY_TASK_STORAGE_KEY);
-        return JSON.parse(legacyTasks || "[]");
+  useEffect(() => {
+    async function loadWorkspace() {
+      if (!token) {
+        setGoal(getStoredStudyGoal());
+        setTasks(getStoredStudyTasks());
+        setAccountReady(false);
+        setMessage("");
+        return;
       }
 
-      return JSON.parse(localStorage.getItem(TASK_STORAGE_KEY) || "[]");
-    } catch (error) {
-      return [];
+      setLoading(true);
+      setAccountReady(false);
+
+      try {
+        const data = await apiRequest("/api/study-items?type=task,goal&limit=120", { token });
+        const items = data.items || [];
+        const savedGoal = items.find(item => item.type === "goal");
+        let nextGoal = savedGoal?.content || "";
+        let nextTasks = items.filter(item => item.type === "task").map(taskFromStudyItem);
+        const localGoal = getStoredStudyGoal();
+        const localTasks = getStoredStudyTasks();
+        const knownTaskTexts = new Set(nextTasks.map(task => task.text.trim().toLowerCase()));
+        const migratedTasks = [];
+        let migrated = false;
+
+        if (localGoal && !nextGoal) {
+          const saved = await apiRequest("/api/study-items", {
+            method: "POST",
+            token,
+            body: {
+              type: "goal",
+              title: "Today study goal",
+              content: localGoal,
+              category: "Progress"
+            }
+          });
+          nextGoal = saved.item?.content || localGoal;
+          migrated = true;
+        }
+
+        for (const localTask of localTasks) {
+          const text = String(localTask.text || "").trim();
+          const key = text.toLowerCase();
+
+          if (!text || knownTaskTexts.has(key)) {
+            continue;
+          }
+
+          const saved = await apiRequest("/api/study-items", {
+            method: "POST",
+            token,
+            body: {
+              type: "task",
+              title: text,
+              content: text,
+              category: "Task",
+              done: Boolean(localTask.done)
+            }
+          });
+
+          migratedTasks.push(taskFromStudyItem(saved.item));
+          knownTaskTexts.add(key);
+          migrated = true;
+        }
+
+        if (migrated) {
+          clearStoredStudyDrafts();
+        }
+
+        setGoal(nextGoal);
+        setTasks([...migratedTasks, ...nextTasks]);
+        setMessage(migrated ? "Local study drafts moved into your account." : "");
+      } catch (error) {
+        setMessage(friendlyError(error));
+      } finally {
+        setLoading(false);
+        setAccountReady(true);
+      }
     }
-  });
+
+    loadWorkspace();
+  }, [token]);
 
   useEffect(() => {
-    localStorage.setItem(GOAL_STORAGE_KEY, goal);
-  }, [goal]);
+    if (!token) {
+      localStorage.setItem(GOAL_STORAGE_KEY, goal);
+      return undefined;
+    }
+
+    if (!accountReady) {
+      return undefined;
+    }
+
+    const syncTimer = window.setTimeout(async () => {
+      try {
+        await apiRequest("/api/study-items", {
+          method: "POST",
+          token,
+          body: {
+            type: "goal",
+            title: "Today study goal",
+            content: goal,
+            category: "Progress"
+          }
+        });
+      } catch (error) {
+        setMessage(friendlyError(error));
+      }
+    }, 600);
+
+    return () => window.clearTimeout(syncTimer);
+  }, [accountReady, goal, token]);
 
   useEffect(() => {
-    localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    if (!token) {
+      localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
+    }
+  }, [tasks, token]);
 
-  function addTask() {
+  async function addTask() {
     const text = taskText.trim();
     if (!text) {
       return;
     }
-    setTasks([{ id: crypto.randomUUID(), text, done: false }, ...tasks]);
-    setTaskText("");
+
+    if (!token) {
+      setTasks([{ id: crypto.randomUUID(), text, done: false }, ...tasks]);
+      setTaskText("");
+      setMessage("Sign in to sync this task to your account.");
+      onOpenAuth();
+      return;
+    }
+
+    try {
+      const data = await apiRequest("/api/study-items", {
+        method: "POST",
+        token,
+        body: {
+          type: "task",
+          title: text,
+          content: text,
+          category: "Task"
+        }
+      });
+      setTasks([taskFromStudyItem(data.item), ...tasks]);
+      setTaskText("");
+      setMessage("");
+    } catch (error) {
+      setMessage(friendlyError(error));
+    }
+  }
+
+  async function updateTaskDone(task, done) {
+    const previousTasks = tasks;
+    setTasks(tasks.map(item => item.id === task.id ? { ...item, done } : item));
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/study-items/${task.id}`, {
+        method: "PATCH",
+        token,
+        body: { done }
+      });
+      setMessage("");
+    } catch (error) {
+      setTasks(previousTasks);
+      setMessage(friendlyError(error));
+    }
+  }
+
+  async function deleteTask(task) {
+    const previousTasks = tasks;
+    setTasks(tasks.filter(item => item.id !== task.id));
+
+    if (!token) {
+      return;
+    }
+
+    try {
+      await apiRequest(`/api/study-items/${task.id}`, {
+        method: "DELETE",
+        token
+      });
+      setMessage("");
+    } catch (error) {
+      setTasks(previousTasks);
+      setMessage(friendlyError(error));
+    }
   }
 
   const completedTasks = tasks.filter(task => task.done).length;
   const taskProgress = tasks.length ? Math.round((completedTasks / tasks.length) * 100) : 0;
 
   return (
-    <ToolShell view="tasks" eyebrow="Tasks" title="Plan goals and tasks" description="Set today's goal, add study tasks, and mark them complete as you work.">
+    <ToolShell view="tasks" eyebrow="Tasks" title="Plan goals and tasks" description="Set today's goal, add study tasks, and keep progress saved with your account.">
       <div className="rounded-lg border border-teal-100 bg-gradient-to-br from-teal-50 to-white p-4">
         <label className="grid gap-2 text-sm font-bold text-teal-800">
           Today's study goal
@@ -1391,25 +1714,239 @@ function TasksPanel() {
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
           <span className="block h-full rounded-full bg-teal-600 transition-all" style={{ width: `${taskProgress}%` }} />
         </div>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-extrabold uppercase text-teal-700">
+          <span>{user ? `Saved for ${user.name}` : "Sign in to sync progress"}</span>
+          {loading && <span>Loading account tasks...</span>}
+        </div>
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <input className="field bg-white" placeholder="Add a focused task" value={taskText} onChange={event => setTaskText(event.target.value)} onKeyDown={event => event.key === "Enter" && addTask()} />
-        <button className="primary-btn" onClick={addTask}><Plus size={18} /> Add</button>
+        <button className="primary-btn" onClick={addTask} disabled={loading}><Plus size={18} /> Add</button>
       </div>
+      {message && <p className="rounded-lg border border-teal-100 bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800">{message}</p>}
       <ul className="grid max-h-72 gap-2 overflow-auto">
         {!tasks.length && <li className="rounded-lg border border-line bg-slate-50 p-4 text-muted">No tasks yet. Add your first study task above.</li>}
         {tasks.map(task => (
           <li key={task.id} className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white p-3 shadow-tight">
             <label className="flex min-w-0 items-center gap-3">
-              <input type="checkbox" checked={task.done} onChange={event => setTasks(tasks.map(item => item.id === task.id ? { ...item, done: event.target.checked } : item))} />
+              <input type="checkbox" checked={task.done} onChange={event => updateTaskDone(task, event.target.checked)} />
               <span className={classNames("break-words", task.done && "text-muted line-through")}>{task.text}</span>
             </label>
-            <button className="text-muted hover:text-rose-600" onClick={() => setTasks(tasks.filter(item => item.id !== task.id))}>
+            <button className="text-muted hover:text-rose-600" onClick={() => deleteTask(task)}>
               <Trash2 size={17} />
             </button>
           </li>
         ))}
       </ul>
+    </ToolShell>
+  );
+}
+
+function getLibraryMeta(type) {
+  if (type === "pdf") {
+    return {
+      label: "PDF",
+      icon: UploadCloud,
+      badge: "border-blue-200 bg-blue-50 text-blue-700"
+    };
+  }
+
+  if (type === "youtube") {
+    return {
+      label: "YouTube",
+      icon: Play,
+      badge: "border-rose-200 bg-rose-50 text-rose-700"
+    };
+  }
+
+  return {
+    label: "Notes",
+    icon: FileText,
+    badge: "border-teal-200 bg-teal-50 text-teal-700"
+  };
+}
+
+function SavedLibraryPanel({ token, user, onOpenAuth }) {
+  const [items, setItems] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [activeItemId, setActiveItemId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function loadItems() {
+    if (!token) {
+      setItems([]);
+      setActiveItemId("");
+      setMessage("");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const data = await apiRequest("/api/study-items?type=note,pdf,youtube&limit=80", { token });
+      const nextItems = data.items || [];
+      setItems(nextItems);
+      setActiveItemId(current => nextItems.some(item => item._id === current) ? current : nextItems[0]?._id || "");
+      setMessage("");
+    } catch (error) {
+      setMessage(friendlyError(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadItems();
+  }, [token]);
+
+  const filteredItems = useMemo(() => {
+    return filter === "all" ? items : items.filter(item => item.type === filter);
+  }, [filter, items]);
+
+  useEffect(() => {
+    if (!filteredItems.length) {
+      setActiveItemId("");
+      return;
+    }
+
+    if (!filteredItems.some(item => item._id === activeItemId)) {
+      setActiveItemId(filteredItems[0]._id);
+    }
+  }, [activeItemId, filteredItems]);
+
+  async function deleteSavedItem(item) {
+    const previousItems = items;
+    const nextItems = items.filter(savedItem => savedItem._id !== item._id);
+    setItems(nextItems);
+    setActiveItemId(current => current === item._id ? nextItems[0]?._id || "" : current);
+
+    try {
+      await apiRequest(`/api/study-items/${item._id}`, {
+        method: "DELETE",
+        token
+      });
+      setMessage("");
+    } catch (error) {
+      setItems(previousItems);
+      setMessage(friendlyError(error));
+    }
+  }
+
+  const activeItem = filteredItems.find(item => item._id === activeItemId) || filteredItems[0];
+  const filters = [
+    ["all", "All"],
+    ["note", "Notes"],
+    ["pdf", "PDF"],
+    ["youtube", "YouTube"]
+  ];
+
+  if (!token) {
+    return (
+      <ToolShell view="library" eyebrow="Private library" title="Saved study work" description="Sign in to view generated notes, PDF summaries, and YouTube summaries tied to your account.">
+        <div className="rounded-lg border border-amber-100 bg-amber-50 p-5">
+          <span className="eyebrow text-amber-700"><ShieldCheck size={15} /> Account required</span>
+          <h3 className="mt-2 text-xl font-extrabold text-ink">Your library is private.</h3>
+          <p className="mt-2 leading-7 text-muted">Create or log in to an account so generated notes, PDF summaries, YouTube summaries, playlists, and tasks stay with you.</p>
+          <button type="button" className="primary-btn mt-4" onClick={onOpenAuth}>
+            <User size={18} />
+            Sign in
+          </button>
+        </div>
+      </ToolShell>
+    );
+  }
+
+  return (
+    <ToolShell view="library" eyebrow="Private library" title="Saved study work" description="Review generated notes, PDF summaries, and YouTube summaries saved to your account.">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-teal-100 bg-teal-50 p-3">
+        <div>
+          <strong className="block text-ink">{user ? `${user.name}'s library` : "Account library"}</strong>
+          <span className="text-sm text-muted">{items.length} saved item{items.length === 1 ? "" : "s"}</span>
+        </div>
+        <button type="button" className="ghost-btn bg-white" onClick={loadItems} disabled={loading}>
+          {loading ? <Loader2 className="animate-spin" size={17} /> : <RotateCcw size={17} />}
+          Refresh
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {filters.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={classNames("min-h-10 rounded-lg border border-line bg-white px-4 text-sm font-bold text-muted shadow-tight transition hover:border-teal-300 hover:bg-teal-50", filter === value && "border-teal-300 bg-teal-50 text-teal-800")}
+            onClick={() => setFilter(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {message && <p className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{message}</p>}
+
+      {!filteredItems.length && (
+        <div className="rounded-lg border border-line bg-slate-50 p-5 text-muted">
+          {loading ? "Loading saved study work..." : "No saved items in this section yet."}
+        </div>
+      )}
+
+      {!!filteredItems.length && (
+        <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
+          <div className="grid max-h-[34rem] gap-3 overflow-auto pr-1">
+            {filteredItems.map(item => {
+              const meta = getLibraryMeta(item.type);
+              const Icon = meta.icon;
+
+              return (
+                <button
+                  key={item._id}
+                  type="button"
+                  onClick={() => setActiveItemId(item._id)}
+                  className={classNames(
+                    "rounded-lg border bg-white p-4 text-left shadow-tight transition hover:border-teal-300 hover:bg-teal-50/40",
+                    activeItem?._id === item._id ? "border-teal-300 ring-2 ring-teal-100" : "border-line"
+                  )}
+                >
+                  <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-extrabold uppercase", meta.badge)}>
+                    <Icon size={14} />
+                    {meta.label}
+                  </span>
+                  <strong className="mt-3 block text-base leading-snug text-ink">{item.title}</strong>
+                  <span className="mt-1 block text-xs font-bold uppercase text-muted">{formatSavedDate(item.createdAt)}</span>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">{getPreviewText(item.content)}</p>
+                </button>
+              );
+            })}
+          </div>
+
+          {activeItem && (
+            <article className="overflow-hidden rounded-lg border border-line bg-white shadow-tight">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-slate-50/80 px-4 py-3">
+                <div>
+                  <span className={classNames("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-extrabold uppercase", getLibraryMeta(activeItem.type).badge)}>
+                    {getLibraryMeta(activeItem.type).label}
+                  </span>
+                  <h3 className="mt-2 text-lg font-extrabold text-ink">{activeItem.title}</h3>
+                  <p className="mt-1 text-sm text-muted">{formatSavedDate(activeItem.createdAt)}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activeItem.sourceUrl && (
+                    <a href={activeItem.sourceUrl} target="_blank" rel="noreferrer" className="ghost-btn bg-white">
+                      Open source <ArrowRight size={16} />
+                    </a>
+                  )}
+                  <button type="button" className="ghost-btn bg-white text-rose-700 hover:bg-rose-50" onClick={() => deleteSavedItem(activeItem)}>
+                    <Trash2 size={17} />
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <div className="notes-output generation-output max-h-[34rem] overflow-auto" dangerouslySetInnerHTML={{ __html: markdownToHTML(activeItem.content) }} />
+            </article>
+          )}
+        </div>
+      )}
     </ToolShell>
   );
 }
@@ -1556,7 +2093,7 @@ function ToolShell({ view, eyebrow, title, description, children }) {
   );
 }
 
-function HomePage({ activeView, setActiveView, result, setResult }) {
+function HomePage({ activeView, setActiveView, result, setResult, token, user, onOpenAuth }) {
   const generationIdRef = useRef(0);
   const typingTimerRef = useRef(null);
   const typingResolveRef = useRef(null);
@@ -1648,14 +2185,52 @@ function HomePage({ activeView, setActiveView, result, setResult }) {
         return;
       }
 
+      const savedPayload = createSavedStudyPayload(payload, view, finalText);
+
       setResult({
         status: "done",
         html: markdownToHTML(finalText),
         text: finalText,
         error: "",
         view,
-        isTyping: false
+        isTyping: false,
+        savedPayload,
+        saveStatus: token ? "saving" : "needs-auth",
+        saveMessage: token ? "Saving to account..." : "Sign in to save this result to your account."
       });
+
+      if (!token) {
+        return;
+      }
+
+      try {
+        const saved = await apiRequest("/api/study-items", {
+          method: "POST",
+          token,
+          body: savedPayload
+        });
+
+        if (generationId !== generationIdRef.current) {
+          return;
+        }
+
+        setResult(current => ({
+          ...current,
+          savedItemId: saved.item?._id,
+          saveStatus: "saved",
+          saveMessage: "Saved to account library"
+        }));
+      } catch (saveError) {
+        if (generationId !== generationIdRef.current) {
+          return;
+        }
+
+        setResult(current => ({
+          ...current,
+          saveStatus: "error",
+          saveMessage: friendlyError(saveError)
+        }));
+      }
     } catch (error) {
       stopTypingAnimation();
       setResult({
@@ -1669,15 +2244,54 @@ function HomePage({ activeView, setActiveView, result, setResult }) {
     }
   }
 
+  async function saveCurrentResult() {
+    if (!token) {
+      onOpenAuth();
+      return;
+    }
+
+    if (!result.savedPayload || result.saveStatus === "saved") {
+      return;
+    }
+
+    setResult(current => ({
+      ...current,
+      saveStatus: "saving",
+      saveMessage: "Saving to account..."
+    }));
+
+    try {
+      const saved = await apiRequest("/api/study-items", {
+        method: "POST",
+        token,
+        body: result.savedPayload
+      });
+
+      setResult(current => ({
+        ...current,
+        savedItemId: saved.item?._id,
+        saveStatus: "saved",
+        saveMessage: "Saved to account library"
+      }));
+    } catch (error) {
+      setResult(current => ({
+        ...current,
+        saveStatus: "error",
+        saveMessage: friendlyError(error)
+      }));
+    }
+  }
+
   return (
     <>
       {activeView === "home" && <HomePanel onGenerate={generate} />}
       {activeView === "pdf" && <PdfPanel onGenerate={generate} />}
       {activeView === "video" && <VideoPanel onGenerate={generate} />}
+      {activeView === "library" && <SavedLibraryPanel token={token} user={user} onOpenAuth={onOpenAuth} />}
       {activeView === "pomodoro" && <PomodoroPanel />}
-      {activeView === "tasks" && <TasksPanel />}
+      {activeView === "tasks" && <TasksPanel token={token} user={user} onOpenAuth={onOpenAuth} />}
       {activeView === "music" && <MusicPanel />}
-      {["home", "pdf", "video"].includes(activeView) && <NotesResult result={result} activeView={activeView} />}
+      {["home", "pdf", "video"].includes(activeView) && <NotesResult result={result} activeView={activeView} token={token} onOpenAuth={onOpenAuth} onSaveResult={saveCurrentResult} />}
     </>
   );
 }
@@ -1913,7 +2527,7 @@ function App() {
       onOpenAuth={() => setAuthOpen(true)}
     >
       {page === "home" ? (
-        <HomePage activeView={activeView} setActiveView={setActiveView} result={result} setResult={setResult} />
+        <HomePage activeView={activeView} setActiveView={setActiveView} result={result} setResult={setResult} token={token} user={user} onOpenAuth={() => setAuthOpen(true)} />
       ) : (
         <LecturesPage token={token} user={user} onOpenAuth={() => setAuthOpen(true)} />
       )}

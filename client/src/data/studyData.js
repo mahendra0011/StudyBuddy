@@ -11,6 +11,7 @@ export const views = [
   { id: "home", label: "Home" },
   { id: "pdf", label: "PDF" },
   { id: "video", label: "Video" },
+  { id: "library", label: "Library" },
   { id: "pomodoro", label: "Pomodoro" },
   { id: "tasks", label: "Tasks" },
   { id: "music", label: "Music" }

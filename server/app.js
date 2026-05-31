@@ -5,6 +5,7 @@ const path = require("path");
 const aiRoutes = require("./routes/aiRoutes");
 const authRoutes = require("./routes/authRoutes");
 const playlistRoutes = require("./routes/playlistRoutes");
+const studyItemRoutes = require("./routes/studyItemRoutes");
 
 const app = express();
 const clientDistPath = path.join(__dirname, "..", "client", "dist");
@@ -25,6 +26,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/playlists", playlistRoutes);
+app.use("/api/study-items", studyItemRoutes);
 app.use("/api", aiRoutes);
 
 if (fs.existsSync(clientDistPath)) {

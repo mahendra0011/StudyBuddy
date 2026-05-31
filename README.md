@@ -11,6 +11,7 @@ StudyBuddy is a full-stack AI study app built with React, Tailwind CSS, Node.js,
 - YouTube lecture metadata and summarization
 - Pomodoro timer, study task planner, and focus music
 - MongoDB-backed signup/login with JWT
+- Account library for generated notes, PDF summaries, YouTube summaries, goals, and tasks
 - User-created lecture playlists stored in MongoDB
 - Express API with clean route/service/model structure
 
@@ -127,6 +128,10 @@ YOUTUBE_API_KEY=your_youtube_data_api_key_here
 - `GET /api/playlists`
 - `POST /api/playlists`
 - `DELETE /api/playlists/:id`
+- `GET /api/study-items`
+- `POST /api/study-items`
+- `PATCH /api/study-items/:id`
+- `DELETE /api/study-items/:id`
 - `POST /api/generate`
 - `POST /api/generate/stream`
 - `POST /api/pdf-text`
