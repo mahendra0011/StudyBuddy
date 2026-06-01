@@ -421,7 +421,8 @@ function GoogleSignInButton({ disabled, onCredential }) {
           type: "standard",
           shape: "rectangular",
           text: "continue_with",
-          width: Math.min(360, Math.max(240, buttonRef.current.offsetWidth || 320))
+          logo_alignment: "left",
+          width: Math.min(400, Math.max(280, buttonRef.current.offsetWidth || 360))
         });
       })
       .catch(() => {
@@ -443,7 +444,7 @@ function GoogleSignInButton({ disabled, onCredential }) {
       <div
         ref={buttonRef}
         className={classNames(
-          "min-h-11 w-full overflow-hidden rounded-lg border border-line bg-white",
+          "flex min-h-11 w-full items-center justify-center overflow-hidden rounded-lg bg-white",
           disabled && "pointer-events-none opacity-60"
         )}
       />
@@ -513,73 +514,60 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-      <section className="relative grid w-[min(880px,100%)] overflow-hidden rounded-xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] md:grid-cols-[0.85fr_1.15fr]">
-        <button type="button" onClick={onClose} className="absolute right-3 top-3 z-10 icon-btn bg-white/90" title="Close">
+      <section className="relative grid w-[min(920px,100%)] overflow-hidden rounded-xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] md:grid-cols-[0.95fr_1.05fr]">
+        <button type="button" onClick={onClose} className="absolute right-3 top-3 z-10 icon-btn bg-white/95" title="Close">
           <X size={18} />
         </button>
 
-        <aside className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-blue-950 to-teal-900 p-6 text-white">
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-blue-300 to-amber-200" />
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/[0.12] ring-1 ring-white/20">
-            <ShieldCheck size={24} />
-          </span>
-          <h2 className="mt-6 text-3xl font-black leading-tight">
-            {user ? "Your study profile is active" : "Secure study account"}
-          </h2>
-          <p className="mt-3 text-sm leading-7 text-blue-50/85">
-            {user
-              ? "Your playlists, saved notes, summaries, and tasks are connected to your profile."
-              : "Create a profile once, then keep notes, summaries, playlists, and progress tied to your account."}
-          </p>
+        <aside className="relative hidden min-h-[540px] overflow-hidden bg-slate-950 p-7 text-white md:flex md:flex-col md:justify-between">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(45,212,191,0.28),transparent_30%),radial-gradient(circle_at_82%_12%,rgba(96,165,250,0.26),transparent_26%),linear-gradient(135deg,#020617,#0f172a_48%,#0f766e)]" />
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-sky-300 to-amber-200" />
 
-          <div className="mt-7 grid gap-3">
-            {[
-              ["MongoDB workspace", "Notes, tasks, and links stored on the backend"],
-              ["JWT session", "Protected study actions"],
-              ["Account library", "Saved per signed-in student"]
-            ].map(([title, detail]) => (
-              <div key={title} className="rounded-lg border border-white/[0.15] bg-white/[0.10] p-3">
-                <strong className="block text-sm">{title}</strong>
-                <span className="mt-1 block text-xs text-blue-50/75">{detail}</span>
+          <div className="relative">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/[0.12] ring-1 ring-white/20">
+              <WandSparkles size={24} />
+            </span>
+            <h2 className="mt-6 max-w-xs text-4xl font-black leading-tight">
+              StudyBuddy
+            </h2>
+            <p className="mt-3 max-w-sm text-sm font-semibold leading-7 text-slate-100/85">
+              {user ? "Profile active and ready." : "Sign in and get back to studying."}
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="rounded-xl border border-white/[0.14] bg-white/[0.10] p-4 shadow-2xl shadow-slate-950/25 backdrop-blur">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 place-items-center rounded-lg bg-white text-blue-700">
+                  <ShieldCheck size={21} />
+                </span>
+                <div>
+                  <strong className="block text-sm">Clean account access</strong>
+                  <span className="mt-1 block text-xs text-slate-100/70">Fast, simple, and synced.</span>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </aside>
 
-        <div className="p-6 sm:p-7">
-          <span className="eyebrow"><User size={14} /> Account access</span>
-          <h2 className="mt-3 text-2xl font-extrabold text-ink">
-            {user ? "Account active" : mode === "login" ? "Welcome back" : "Create your account"}
+        <div className="p-5 sm:p-8">
+          <span className="eyebrow"><User size={14} /> StudyBuddy account</span>
+          <h2 className="mt-3 text-3xl font-black leading-tight text-ink">
+            {user ? "You are signed in" : mode === "login" ? "Welcome back" : "Create your account"}
           </h2>
-          <p className="mt-2 leading-7 text-muted">
+          <p className="mt-2 max-w-md leading-7 text-muted">
             {user
               ? `You are signed in as ${user.name} (${user.email}).`
               : mode === "login"
-                ? "Enter your credentials to continue your study session."
-                : "Add your name, email, and password to save notes, summaries, tasks, and playlists."}
+                ? "Continue with Google or use your email and password."
+                : "Start with Google or create a StudyBuddy password account."}
           </p>
 
           {!user && (
             <>
-              <div className="mt-5 grid grid-cols-2 gap-1 rounded-lg border border-line bg-slate-50 p-1">
-                {["signup", "login"].map(item => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setMode(item)}
-                    className={classNames(
-                      "min-h-11 rounded-md font-bold text-muted transition",
-                      mode === item && "bg-white text-blue-700 shadow-tight"
-                    )}
-                  >
-                    {item === "signup" ? "Create account" : "Log in"}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-5">
+              <div className="mt-6">
                 {GOOGLE_CLIENT_ID ? (
-                  <div className="relative">
+                  <div className="relative rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-tight">
                     <GoogleSignInButton disabled={loading || googleLoading} onCredential={submitGoogleAuth} />
                     {googleLoading && (
                       <span className="absolute inset-0 grid place-items-center rounded-lg bg-white/70">
@@ -598,6 +586,22 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
                 <span className="h-px flex-1 bg-line" />
                 <span>or use email</span>
                 <span className="h-px flex-1 bg-line" />
+              </div>
+
+              <div className="mb-4 grid grid-cols-2 gap-1 rounded-lg border border-line bg-slate-50 p-1">
+                {["signup", "login"].map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setMode(item)}
+                    className={classNames(
+                      "min-h-11 rounded-md font-bold text-muted transition",
+                      mode === item && "bg-white text-blue-700 shadow-tight"
+                    )}
+                  >
+                    {item === "signup" ? "Create account" : "Log in"}
+                  </button>
+                ))}
               </div>
 
               <form onSubmit={submitAuth} className="grid gap-3">
