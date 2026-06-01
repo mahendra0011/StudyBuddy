@@ -2,6 +2,12 @@
 
 StudyBuddy is a full-stack AI study app built with React, Tailwind CSS, Node.js, Express, and MongoDB.
 
+Live app:
+
+```text
+https://studybuddy-86s2.onrender.com
+```
+
 ## Features
 
 - React single-page app with navbar-based views
@@ -63,6 +69,29 @@ YOUTUBE_API_KEY=your_youtube_data_api_key_here
 
 Never put API keys in React code. Keep them in server environment variables.
 For Google sign-in, use the same Google OAuth Web Client ID for `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID`; the server validates the Google ID token before issuing the app JWT.
+Do not commit `.env`, API keys, MongoDB passwords, OAuth client secrets, or JWT secrets to GitHub.
+
+## Google Login Setup
+
+Create a Google OAuth **Web application** client in Google Cloud / Google Auth Platform.
+
+Add these Authorized JavaScript origins:
+
+```text
+http://localhost:5173
+https://studybuddy-86s2.onrender.com
+```
+
+Authorized redirect URIs can stay empty for this app. StudyBuddy uses Google Identity Services to get a browser ID token, then sends it to `POST /api/auth/google`; it does not use a Google redirect callback route.
+
+Add the OAuth client ID to both backend and frontend env vars:
+
+```text
+GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
+```
+
+The OAuth client secret is not needed for the current Google login flow.
 
 ## Run Locally
 
@@ -116,6 +145,7 @@ Start Command: npm start
 Add these Render environment variables:
 
 ```text
+CLIENT_ORIGIN=https://studybuddy-86s2.onrender.com
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
 GEMINI_API_KEY=your_new_gemini_api_key_here
@@ -124,6 +154,8 @@ YOUTUBE_API_KEY=your_youtube_data_api_key_here
 GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
 VITE_GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
 ```
+
+After changing `VITE_GOOGLE_CLIENT_ID`, redeploy Render so Vite rebuilds the frontend bundle with the new value.
 
 ## API Routes
 
