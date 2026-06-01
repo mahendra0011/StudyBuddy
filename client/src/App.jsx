@@ -400,9 +400,9 @@ function NavButton({ active, icon: Icon, label, onClick }) {
 }
 
 function GoogleSignInButton({ disabled, onCredential }) {
-  const buttonRef = useRef(null);
   const callbackRef = useRef(onCredential);
   const [scriptError, setScriptError] = useState("");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     callbackRef.current = onCredential;
@@ -411,60 +411,74 @@ function GoogleSignInButton({ disabled, onCredential }) {
   useEffect(() => {
     let cancelled = false;
 
-    if (!GOOGLE_CLIENT_ID || !buttonRef.current) {
+    if (!GOOGLE_CLIENT_ID) {
       return undefined;
     }
 
     setScriptError("");
+    setReady(false);
 
     loadGoogleIdentityScript()
       .then(() => {
-        if (cancelled || !buttonRef.current) {
+        if (cancelled) {
           return;
         }
 
-        buttonRef.current.innerHTML = "";
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
+          auto_select: false,
+          cancel_on_tap_outside: true,
           callback: response => {
             if (response?.credential) {
               callbackRef.current(response.credential);
             }
           }
         });
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: "outline",
-          size: "large",
-          type: "standard",
-          shape: "rectangular",
-          text: "continue_with",
-          logo_alignment: "left",
-          width: Math.min(400, Math.max(280, buttonRef.current.offsetWidth || 360))
-        });
+        setReady(true);
       })
       .catch(() => {
         if (!cancelled) {
           setScriptError("Google sign-in could not load.");
+          setReady(false);
         }
       });
 
     return () => {
       cancelled = true;
-      if (buttonRef.current) {
-        buttonRef.current.innerHTML = "";
-      }
     };
   }, []);
 
+  function openGooglePrompt() {
+    setScriptError("");
+
+    if (!window.google?.accounts?.id) {
+      setScriptError("Google sign-in is still loading.");
+      return;
+    }
+
+    window.google.accounts.id.prompt(notification => {
+      if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+        setScriptError("Google sign-in could not open. Try again.");
+      }
+    });
+  }
+
   return (
     <>
-      <div
-        ref={buttonRef}
+      <button
+        type="button"
+        onClick={openGooglePrompt}
+        disabled={disabled || !ready}
         className={classNames(
-          "flex min-h-11 w-full items-center justify-center overflow-hidden rounded-lg bg-white",
-          disabled && "pointer-events-none opacity-60"
+          "group flex min-h-12 w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 font-extrabold text-slate-800 shadow-tight transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-100 focus:outline-none focus:ring-4 focus:ring-blue-100",
+          (disabled || !ready) && "pointer-events-none opacity-60"
         )}
-      />
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-lg font-black text-blue-600 shadow-sm">
+          G
+        </span>
+        <span>Continue with Google</span>
+      </button>
       {scriptError && <p className="mt-2 text-sm font-semibold text-rose-600">{scriptError}</p>}
     </>
   );
