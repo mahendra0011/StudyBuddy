@@ -10,7 +10,7 @@ StudyBuddy is a full-stack AI study app built with React, Tailwind CSS, Node.js,
 - PDF text extraction and summarization
 - YouTube lecture metadata and summarization
 - Pomodoro timer, study task planner, and focus music
-- MongoDB-backed signup/login with JWT
+- MongoDB-backed signup/login with JWT and Google sign-in
 - Account library for generated notes, PDF summaries, YouTube summaries, goals, and tasks
 - User-created lecture playlists stored in MongoDB
 - Express API with clean route/service/model structure
@@ -53,6 +53,8 @@ CLIENT_ORIGIN=http://localhost:5173
 
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
+GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
 
 GEMINI_API_KEY=your_new_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash-lite
@@ -60,6 +62,7 @@ YOUTUBE_API_KEY=your_youtube_data_api_key_here
 ```
 
 Never put API keys in React code. Keep them in server environment variables.
+For Google sign-in, use the same Google OAuth Web Client ID for `GOOGLE_CLIENT_ID` and `VITE_GOOGLE_CLIENT_ID`; the server validates the Google ID token before issuing the app JWT.
 
 ## Run Locally
 
@@ -118,12 +121,15 @@ JWT_SECRET=replace_with_a_long_random_secret
 GEMINI_API_KEY=your_new_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash-lite
 YOUTUBE_API_KEY=your_youtube_data_api_key_here
+GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
+VITE_GOOGLE_CLIENT_ID=your_google_oauth_web_client_id
 ```
 
 ## API Routes
 
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/google`
 - `GET /api/auth/me`
 - `GET /api/playlists`
 - `POST /api/playlists`

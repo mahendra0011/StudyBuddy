@@ -16,15 +16,29 @@ const userSchema = new mongoose.Schema({
         lowercase: true,
         index: true
     },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true,
+        index: true
+    },
     passwordHash: {
         type: String,
-        required: true
+        default: ""
+    },
+    authProviders: {
+        type: [{
+            type: String,
+            enum: ["password", "google"]
+        }],
+        default: () => ["password"]
     }
 }, {
     timestamps: true,
     toJSON: {
         transform(doc, ret) {
             delete ret.passwordHash;
+            delete ret.googleId;
             delete ret.__v;
             return ret;
         }

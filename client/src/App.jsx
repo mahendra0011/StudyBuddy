@@ -47,6 +47,8 @@ const GOAL_STORAGE_KEY = "studybuddy-study-goal";
 const LEGACY_AUTH_STORAGE_KEY = "notesgpt-auth";
 const LEGACY_TASK_STORAGE_KEY = "notesgpt-study-tasks-react";
 const LEGACY_GOAL_STORAGE_KEY = "notesgpt-study-goal-react";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
 const POMODORO_DURATIONS = {
   focus: 25 * 60,
   short: 5 * 60,
@@ -134,8 +136,38 @@ const TONE_CLASSES = {
   }
 };
 
+let googleIdentityScriptPromise = null;
+
 function classNames(...items) {
   return items.filter(Boolean).join(" ");
+}
+
+function loadGoogleIdentityScript() {
+  if (window.google?.accounts?.id) {
+    return Promise.resolve();
+  }
+
+  if (!googleIdentityScriptPromise) {
+    googleIdentityScriptPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector(`script[src="${GOOGLE_SCRIPT_SRC}"]`);
+
+      if (existingScript) {
+        existingScript.addEventListener("load", resolve, { once: true });
+        existingScript.addEventListener("error", reject, { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = GOOGLE_SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  return googleIdentityScriptPromise;
 }
 
 function friendlyError(error) {
@@ -350,16 +382,88 @@ function NavButton({ active, icon: Icon, label, onClick }) {
   );
 }
 
+function GoogleSignInButton({ disabled, onCredential }) {
+  const buttonRef = useRef(null);
+  const callbackRef = useRef(onCredential);
+  const [scriptError, setScriptError] = useState("");
+
+  useEffect(() => {
+    callbackRef.current = onCredential;
+  }, [onCredential]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!GOOGLE_CLIENT_ID || !buttonRef.current) {
+      return undefined;
+    }
+
+    setScriptError("");
+
+    loadGoogleIdentityScript()
+      .then(() => {
+        if (cancelled || !buttonRef.current) {
+          return;
+        }
+
+        buttonRef.current.innerHTML = "";
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: response => {
+            if (response?.credential) {
+              callbackRef.current(response.credential);
+            }
+          }
+        });
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: "outline",
+          size: "large",
+          type: "standard",
+          shape: "rectangular",
+          text: "continue_with",
+          width: Math.min(360, Math.max(240, buttonRef.current.offsetWidth || 320))
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setScriptError("Google sign-in could not load.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (buttonRef.current) {
+        buttonRef.current.innerHTML = "";
+      }
+    };
+  }, []);
+
+  return (
+    <>
+      <div
+        ref={buttonRef}
+        className={classNames(
+          "min-h-11 w-full overflow-hidden rounded-lg border border-line bg-white",
+          disabled && "pointer-events-none opacity-60"
+        )}
+      />
+      {scriptError && <p className="mt-2 text-sm font-semibold text-rose-600">{scriptError}</p>}
+    </>
+  );
+}
+
 function AuthModal({ open, user, onClose, onAuth, onLogout }) {
   const [mode, setMode] = useState("signup");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   useEffect(() => {
     if (open) {
       setError("");
       setForm({ name: "", email: "", password: "" });
+      setGoogleLoading(false);
     }
   }, [open, mode]);
 
@@ -386,6 +490,24 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
       setError(friendlyError(submitError));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function submitGoogleAuth(credential) {
+    setError("");
+    setGoogleLoading(true);
+
+    try {
+      const data = await apiRequest("/api/auth/google", {
+        method: "POST",
+        body: { credential }
+      });
+      onAuth(data);
+      onClose();
+    } catch (submitError) {
+      setError(friendlyError(submitError));
+    } finally {
+      setGoogleLoading(false);
     }
   }
 
@@ -455,7 +577,30 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
                 ))}
               </div>
 
-              <form onSubmit={submitAuth} className="mt-5 grid gap-3">
+              <div className="mt-5">
+                {GOOGLE_CLIENT_ID ? (
+                  <div className="relative">
+                    <GoogleSignInButton disabled={loading || googleLoading} onCredential={submitGoogleAuth} />
+                    {googleLoading && (
+                      <span className="absolute inset-0 grid place-items-center rounded-lg bg-white/70">
+                        <Loader2 className="animate-spin text-blue-700" size={20} />
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                    Google sign-in is not configured.
+                  </p>
+                )}
+              </div>
+
+              <div className="my-5 flex items-center gap-3 text-xs font-extrabold uppercase text-muted">
+                <span className="h-px flex-1 bg-line" />
+                <span>or use email</span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+
+              <form onSubmit={submitAuth} className="grid gap-3">
                 {mode === "signup" && (
                   <label className="relative block">
                     <UserPlus className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -496,7 +641,7 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
                     {error}
                   </p>
                 )}
-                <button className="primary-btn min-h-12" disabled={loading}>
+                <button className="primary-btn min-h-12" disabled={loading || googleLoading}>
                   {loading ? <Loader2 className="animate-spin" size={18} /> : mode === "signup" ? <UserPlus size={18} /> : <ArrowRight size={18} />}
                   {mode === "signup" ? "Create account" : "Log in"}
                 </button>

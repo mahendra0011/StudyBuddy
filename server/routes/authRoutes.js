@@ -1,10 +1,12 @@
 const bcrypt = require("bcryptjs");
 const express = require("express");
+const { OAuth2Client } = require("google-auth-library");
 const { requireDatabase } = require("../config/database");
 const { requireAuth, signToken } = require("../middleware/auth");
 const User = require("../models/User");
 
 const router = express.Router();
+const googleClient = new OAuth2Client();
 
 function normalizeEmail(email) {
     return String(email || "").trim().toLowerCase();
@@ -16,6 +18,15 @@ function publicUser(user) {
         name: user.name,
         email: user.email
     };
+}
+
+function getGoogleClientId() {
+    return process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "";
+}
+
+function getProviderList(user, provider) {
+    const providers = Array.isArray(user.authProviders) ? user.authProviders : [];
+    return providers.includes(provider) ? providers : [...providers, provider];
 }
 
 router.post("/signup", requireDatabase, async (req, res, next) => {
@@ -42,7 +53,7 @@ router.post("/signup", requireDatabase, async (req, res, next) => {
         }
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const user = await User.create({ name, email, passwordHash });
+        const user = await User.create({ name, email, passwordHash, authProviders: ["password"] });
 
         return res.status(201).json({
             token: signToken(user),
@@ -59,10 +70,85 @@ router.post("/login", requireDatabase, async (req, res, next) => {
         const password = String(req.body?.password || "");
         const user = await User.findOne({ email });
 
-        if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+        if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
             return res.status(401).json({
                 status: "INVALID_LOGIN",
                 message: "Email or password is incorrect."
+            });
+        }
+
+        return res.json({
+            token: signToken(user),
+            user: publicUser(user)
+        });
+    } catch (error) {
+        return next(error);
+    }
+});
+
+router.post("/google", requireDatabase, async (req, res, next) => {
+    try {
+        const clientId = getGoogleClientId();
+        const credential = String(req.body?.credential || "");
+
+        if (!clientId) {
+            return res.status(500).json({
+                status: "GOOGLE_AUTH_NOT_CONFIGURED",
+                message: "Google login is not configured on the server."
+            });
+        }
+
+        if (!credential) {
+            return res.status(400).json({
+                status: "BAD_REQUEST",
+                message: "Google credential is required."
+            });
+        }
+
+        let payload;
+        try {
+            const ticket = await googleClient.verifyIdToken({
+                idToken: credential,
+                audience: clientId
+            });
+            payload = ticket.getPayload();
+        } catch (error) {
+            return res.status(401).json({
+                status: "INVALID_GOOGLE_TOKEN",
+                message: "Google login could not be verified."
+            });
+        }
+
+        const email = normalizeEmail(payload?.email);
+        const googleId = String(payload?.sub || "");
+        const name = String(payload?.name || payload?.given_name || email.split("@")[0] || "Student").trim();
+
+        if (!email || payload?.email_verified !== true || !googleId) {
+            return res.status(401).json({
+                status: "INVALID_GOOGLE_ACCOUNT",
+                message: "Google account email could not be verified."
+            });
+        }
+
+        let user = await User.findOne({ googleId });
+
+        if (!user) {
+            user = await User.findOne({ email });
+        }
+
+        if (user) {
+            user.googleId = user.googleId || googleId;
+            user.authProviders = getProviderList(user, "google");
+            if (!user.name && name.length >= 2) {
+                user.name = name;
+            }
+            await user.save();
+        } else {
+            user = await User.create({
+                name: name.length >= 2 ? name : "Student",
+                email,
+                googleId,
+                authProviders: ["google"]
             });
         }
 
