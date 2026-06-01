@@ -514,54 +514,84 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-md">
-      <section className="relative grid w-[min(920px,100%)] overflow-hidden rounded-xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)] md:grid-cols-[0.95fr_1.05fr]">
+      <section
+        className={classNames(
+          "relative grid overflow-hidden rounded-xl border border-white/80 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]",
+          user ? "w-[min(430px,100%)]" : "w-[min(920px,100%)] md:grid-cols-[0.95fr_1.05fr]"
+        )}
+      >
         <button type="button" onClick={onClose} className="absolute right-3 top-3 z-10 icon-btn bg-white/95" title="Close">
           <X size={18} />
         </button>
 
-        <aside className="relative hidden min-h-[540px] overflow-hidden bg-slate-950 p-7 text-white md:flex md:flex-col md:justify-between">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(45,212,191,0.28),transparent_30%),radial-gradient(circle_at_82%_12%,rgba(96,165,250,0.26),transparent_26%),linear-gradient(135deg,#020617,#0f172a_48%,#0f766e)]" />
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-sky-300 to-amber-200" />
+        {!user && (
+          <aside className="relative hidden min-h-[540px] overflow-hidden bg-slate-950 p-7 text-white md:flex md:flex-col md:justify-between">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(45,212,191,0.28),transparent_30%),radial-gradient(circle_at_82%_12%,rgba(96,165,250,0.26),transparent_26%),linear-gradient(135deg,#020617,#0f172a_48%,#0f766e)]" />
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-300 via-sky-300 to-amber-200" />
 
-          <div className="relative">
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/[0.12] ring-1 ring-white/20">
-              <WandSparkles size={24} />
-            </span>
-            <h2 className="mt-6 max-w-xs text-4xl font-black leading-tight">
-              StudyBuddy
-            </h2>
-            <p className="mt-3 max-w-sm text-sm font-semibold leading-7 text-slate-100/85">
-              {user ? "Profile active and ready." : "Sign in and get back to studying."}
-            </p>
-          </div>
+            <div className="relative">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-lg bg-white/[0.12] ring-1 ring-white/20">
+                <WandSparkles size={24} />
+              </span>
+              <h2 className="mt-6 max-w-xs text-4xl font-black leading-tight">
+                StudyBuddy
+              </h2>
+              <p className="mt-3 max-w-sm text-sm font-semibold leading-7 text-slate-100/85">
+                Sign in and get back to studying.
+              </p>
+            </div>
 
-          <div className="relative">
-            <div className="rounded-xl border border-white/[0.14] bg-white/[0.10] p-4 shadow-2xl shadow-slate-950/25 backdrop-blur">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-white text-blue-700">
-                  <ShieldCheck size={21} />
-                </span>
-                <div>
-                  <strong className="block text-sm">Clean account access</strong>
-                  <span className="mt-1 block text-xs text-slate-100/70">Fast, simple, and synced.</span>
+            <div className="relative">
+              <div className="rounded-xl border border-white/[0.14] bg-white/[0.10] p-4 shadow-2xl shadow-slate-950/25 backdrop-blur">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-lg bg-white text-blue-700">
+                    <ShieldCheck size={21} />
+                  </span>
+                  <div>
+                    <strong className="block text-sm">Clean account access</strong>
+                    <span className="mt-1 block text-xs text-slate-100/70">Fast, simple, and synced.</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </aside>
+          </aside>
+        )}
 
-        <div className="p-5 sm:p-8">
+        <div className={classNames(user ? "p-5 sm:p-6" : "p-5 sm:p-8")}>
+          {user && (
+            <span className="mb-4 grid h-12 w-12 place-items-center rounded-lg bg-teal-600 text-white shadow-lg shadow-teal-100">
+              <CheckCircle2 size={22} />
+            </span>
+          )}
           <span className="eyebrow"><User size={14} /> StudyBuddy account</span>
-          <h2 className="mt-3 text-3xl font-black leading-tight text-ink">
-            {user ? "You are signed in" : mode === "login" ? "Welcome back" : "Create your account"}
+          <h2 className={classNames("mt-3 font-black leading-tight text-ink", user ? "text-2xl" : "text-3xl")}>
+            {user ? "Signed in" : mode === "login" ? "Welcome back" : "Create your account"}
           </h2>
-          <p className="mt-2 max-w-md leading-7 text-muted">
+          <p className={classNames("mt-2 leading-7 text-muted", user ? "text-sm" : "max-w-md")}>
             {user
-              ? `You are signed in as ${user.name} (${user.email}).`
+              ? "Your account is active."
               : mode === "login"
                 ? "Continue with Google or use your email and password."
                 : "Start with Google or create a StudyBuddy password account."}
           </p>
+
+          {user && (
+            <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-teal-700 ring-1 ring-teal-100">
+                  <User size={19} />
+                </span>
+                <div>
+                  <strong className="block truncate text-ink">{user.name}</strong>
+                  <span className="block truncate text-sm text-muted">{user.email}</span>
+                </div>
+              </div>
+              <button type="button" onClick={onLogout} className="mt-4 ghost-btn w-full">
+                <LogOut size={18} />
+                Sign out
+              </button>
+            </div>
+          )}
 
           {!user && (
             <>
@@ -651,24 +681,6 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
                 </button>
               </form>
             </>
-          )}
-
-          {user && (
-            <div className="mt-6 rounded-lg border border-line bg-slate-50 p-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-teal-600 text-white">
-                  <CheckCircle2 size={21} />
-                </span>
-                <div className="min-w-0">
-                  <strong className="block truncate text-ink">{user.name}</strong>
-                  <span className="block truncate text-sm text-muted">{user.email}</span>
-                </div>
-              </div>
-              <button type="button" onClick={onLogout} className="mt-4 ghost-btn w-full">
-                <LogOut size={18} />
-                Sign out
-              </button>
-            </div>
           )}
         </div>
       </section>
