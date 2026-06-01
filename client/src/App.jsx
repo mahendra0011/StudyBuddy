@@ -327,6 +327,16 @@ function formatSavedDate(value) {
   });
 }
 
+function getAccountLabel(user, fallback = "Account") {
+  const name = String(user?.name || "").trim();
+
+  if (!name || name.includes("@")) {
+    return fallback;
+  }
+
+  return name.split(/\s+/)[0].slice(0, 24);
+}
+
 function Layout({ page, activeView, user, onNavigateHome, onNavigateLectures, onOpenAuth, children }) {
   return (
     <div className="app-shell mx-auto min-h-screen w-[min(1200px,calc(100%-28px))] py-4 sm:py-5">
@@ -354,9 +364,16 @@ function Layout({ page, activeView, user, onNavigateHome, onNavigateLectures, on
           <NavButton active={page === "lectures"} icon={BookOpen} label="Lectures" onClick={onNavigateLectures} />
         </nav>
 
-        <button type="button" onClick={onOpenAuth} className="ghost-btn justify-self-start overflow-hidden lg:justify-self-end">
-          <User size={17} />
-          <span className="truncate">{user ? user.name : "Sign in"}</span>
+        <button
+          type="button"
+          onClick={onOpenAuth}
+          className={classNames(
+            "justify-self-start overflow-hidden lg:justify-self-end",
+            user ? "primary-btn min-h-11 shadow-teal-100" : "ghost-btn"
+          )}
+        >
+          {user ? <CheckCircle2 size={17} /> : <User size={17} />}
+          <span className="truncate">{user ? "Account" : "Sign in"}</span>
         </button>
       </header>
 
@@ -577,16 +594,20 @@ function AuthModal({ open, user, onClose, onAuth, onLogout }) {
 
           {user && (
             <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white text-teal-700 ring-1 ring-teal-100">
-                  <User size={19} />
+              <div className="flex items-center gap-3 rounded-lg bg-white p-3 ring-1 ring-teal-100">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-teal-600 text-white">
+                  <ShieldCheck size={19} />
                 </span>
-                <div>
-                  <strong className="block truncate text-ink">{user.name}</strong>
-                  <span className="block truncate text-sm text-muted">{user.email}</span>
+                <div className="min-w-0">
+                  <strong className="block truncate text-ink">Account connected</strong>
+                  <span className="block truncate text-sm text-muted">Ready to keep studying</span>
                 </div>
               </div>
-              <button type="button" onClick={onLogout} className="mt-4 ghost-btn w-full">
+              <button type="button" onClick={onClose} className="primary-btn mt-4 w-full">
+                <ArrowRight size={18} />
+                Continue studying
+              </button>
+              <button type="button" onClick={onLogout} className="mt-3 ghost-btn w-full">
                 <LogOut size={18} />
                 Sign out
               </button>
@@ -1876,7 +1897,7 @@ function TasksPanel({ token, user, onOpenAuth }) {
           <span className="block h-full rounded-full bg-teal-600 transition-all" style={{ width: `${taskProgress}%` }} />
         </div>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-extrabold uppercase text-teal-700">
-          <span>{user ? `Saved for ${user.name}` : "Sign in to sync progress"}</span>
+          <span>{user ? `Saved for ${getAccountLabel(user, "your account")}` : "Sign in to sync progress"}</span>
           {loading && <span>Loading account tasks...</span>}
         </div>
       </div>
@@ -2023,7 +2044,7 @@ function SavedLibraryPanel({ token, user, onOpenAuth }) {
       <aside className="flex min-h-[22rem] flex-col border-b border-line bg-slate-50/80 lg:border-b-0 lg:border-r">
         <div className="flex items-center justify-between gap-3 border-b border-line p-3">
           <div className="min-w-0">
-            <strong className="block truncate text-sm text-ink">{user ? user.name : "Library"}</strong>
+            <strong className="block truncate text-sm text-ink">{user ? getAccountLabel(user, "Your library") : "Library"}</strong>
             <span className="text-xs font-bold uppercase text-muted">{items.length} saved</span>
           </div>
           <button type="button" className="icon-btn h-9 w-9 shrink-0 bg-white" onClick={loadItems} disabled={loading} title="Refresh">
@@ -2605,7 +2626,7 @@ function LecturesPage({ token, user, onOpenAuth }) {
             <h2 className="mt-2 text-2xl font-extrabold">Create your own playlist</h2>
           </div>
           <span className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">
-            {user ? user.name : "Sign in required"}
+            {user ? getAccountLabel(user, "Account active") : "Sign in required"}
           </span>
         </div>
 
