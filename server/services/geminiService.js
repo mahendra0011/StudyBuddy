@@ -1,9 +1,9 @@
-const GEMINI_MODEL_FALLBACKS = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
+const GEMINI_MODEL_FALLBACKS = ["gemini-3.5-flash-lite", "gemini-flash-lite-latest", "gemini-3.6-flash", "gemini-flash-latest"];
 const GEMINI_REQUEST_TIMEOUT_MS = 30000;
 const GEMINI_STREAM_IDLE_TIMEOUT_MS = 15000;
 
 function getGeminiModelCandidates() {
-    const configured = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+    const configured = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
     return Array.from(new Set([configured, ...GEMINI_MODEL_FALLBACKS].filter(Boolean)));
 }
 
